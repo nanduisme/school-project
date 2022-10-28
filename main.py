@@ -15,8 +15,10 @@ from re import sub
 from secrets import choice
 from time import sleep
 
-DOWN = curses.KEY_DOWN
 Q = (ord("q"), ord("Q"))
+W = (ord("w"), ord("W"))
+S = (ord("s"), ord("S"))
+DOWN = curses.KEY_DOWN
 UP = curses.KEY_UP
 ENTER = 10
 
@@ -102,9 +104,9 @@ class App:
 
             key = self.scr.getch()
 
-            if key == UP and cy > 0:
+            if (key == UP or key in W) and cy > 0:
                 cy -= 1
-            elif key == DOWN and cy < len(options) - 1:
+            elif (key == DOWN or key in S) and cy < len(options) - 1:
                 cy += 1
 
             # QUIT
