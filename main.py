@@ -11,8 +11,6 @@ except ImportError:
     quit()
 
 from curses.ascii import ESC
-from re import sub
-from secrets import choice
 from time import sleep
 
 Q = (ord("q"), ord("Q"))
@@ -88,8 +86,10 @@ class App:
 
     # Menu function
     def menu(self, options: list):
-        cy = 0  # Selector postiion
-        hl = lambda row: curses.A_REVERSE if cy == row else 0  # Highlight function
+        # Selector postiion
+        cy = 0
+        # Highlight function
+        hl = lambda row: curses.A_REVERSE if cy == row else 0
 
         while True:
             self.main_win.erase()
@@ -193,6 +193,8 @@ class App:
             choice_actions[choice]()
 
     def option_edit_settings(self):
+        sample_table = [(i, chr(ord("a") + i), float(i)) for i in range(26)]
+        
         self.nothing()
 
     # FUNCTIONS FOR SUBMENUS
