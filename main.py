@@ -99,6 +99,8 @@ class App:
 
             for i, option in enumerate(options):
                 self.main_win.addstr(i + 1, 3, option, hl(i))
+            
+            self.scr.move(cy + 5, 4)
 
             self.refresh()
 
