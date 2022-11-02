@@ -195,9 +195,11 @@ class App:
             choice_actions[choice]()
 
     def option_edit_settings(self):
-        sample_table = [(i, chr(ord("a") + i), float(i)) for i in range(26)]
-        
-        self.nothing()
+        self.clear(self.main_win)
+        sample_table = [(i, chr(ord("a") + i) * 8, float(i)) for i in range(26)]
+        headings = ["ID", "Name", "Float"]
+
+        columns = []
 
     # FUNCTIONS FOR SUBMENUS
 
