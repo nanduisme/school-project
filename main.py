@@ -13,6 +13,8 @@ except ImportError:
 from curses.ascii import ESC
 from time import sleep
 
+from table import gen_table, sample_table
+
 Q = (ord("q"), ord("Q"))
 W = (ord("w"), ord("W"))
 S = (ord("s"), ord("S"))
@@ -196,10 +198,15 @@ class App:
 
     def option_edit_settings(self):
         self.clear(self.main_win)
-        sample_table = [(i, chr(ord("a") + i) * 8, float(i)) for i in range(26)]
-        headings = ["ID", "Name", "Float"]
+        table = gen_table(sample_table, ["ID", "Name", "Class", "Division"])
+        
+        for n, row in enumerate(table, 1):
+            self.main_win.addstr(n, 5, row)
+        
+        self.refresh()
+        self.scr.getch()
 
-        columns = []
+        self.step_back_path()
 
     # FUNCTIONS FOR SUBMENUS
 
