@@ -1,2 +1,2 @@
-windows-curses
+rich
 mysql-connector-python
