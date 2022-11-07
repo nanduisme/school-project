@@ -1,19 +1,26 @@
+import os
+
 try:
     import curses
     from curses import wrapper
+    from mysql.connector import connect
 except ImportError:
-    print("Please install the necessary libraries to use this app\n")
     print(
-        "Locate into the app folder via your terminal and type\n\n\tpip install -r requirements.txt\n"
+        "Please install the necessary libraries to use this app\n",
+        f"Open your terminal and type\n\n\tcd {os.path.dirname(os.path.abspath(__file__))}",
+        "\tpip install -r requirements.txt\n",
+        "and hit enter to install all the essential libraries.\n",
+        "Use a monospace font for best experience.",
+        sep="\n",
     )
-    print("and hit enter to install all the essential libraries.\n")
-    print("Use a monospace font for best experience.")
     quit()
 
 from curses.ascii import ESC
 from time import sleep
 
-from table import gen_table, sample_table
+from table import gen_table
+from startup import startup, get_config
+from db import DatabaseManager
 
 Q = (ord("q"), ord("Q"))
 W = (ord("w"), ord("W"))
@@ -25,6 +32,16 @@ ENTER = 10
 
 class App:
     def __init__(self, stdscr) -> None:
+        self.config = get_config()
+        self.db = DatabaseManager(
+            connect(
+                host="localhost",
+                user=self.config[0],
+                password=self.config[1],
+                charset="utf8",
+            )
+        )
+
         self.scr = stdscr
         self.scr.clear()
         self.clear(stdscr)
@@ -67,10 +84,7 @@ class App:
     def update_path(self):
         self.clear(self.path_win)
         self.path_win.addstr(1, 2, self.path[0], curses.A_BOLD)
-        remaining_path = ""
-
-        for p in self.path[1:]:
-            remaining_path += f" > {p}"
+        remaining_path = "".join(f" > {p}" for p in self.path[1:])
 
         self.path_win.addstr(1, 6, remaining_path)
         self.refresh()
@@ -101,7 +115,7 @@ class App:
 
             for i, option in enumerate(options):
                 self.main_win.addstr(i + 1, 3, option, hl(i))
-            
+
             self.scr.move(cy + 5, 4)
 
             self.refresh()
@@ -197,16 +211,7 @@ class App:
             choice_actions[choice]()
 
     def option_edit_settings(self):
-        self.clear(self.main_win)
-        table = gen_table(sample_table, ["ID", "Name", "Class", "Division"])
-        
-        for n, row in enumerate(table, 1):
-            self.main_win.addstr(n, 5, row)
-        
-        self.refresh()
-        self.scr.getch()
-
-        self.step_back_path()
+        self.nothing()
 
     # FUNCTIONS FOR SUBMENUS
 
@@ -285,8 +290,39 @@ class App:
     def option_books_0(self):
         self.nothing()
 
+    # All books
     def option_books_1(self):
-        self.nothing()
+        data = self.db.book_all()
+        if not data:
+            self.main_win.addstr(1, 2, "Database Empty!", curses.A_BOLD)
+            self.refresh()
+            self.scr.getch()
+            self.step_back_path()
+            return
+
+        page = 1
+        cy = 0
+        while True:
+            self.main_win.clear()
+
+            MAX_H, MAX_W = self.main_win.getmaxyx()
+
+            table = gen_table(data, ["ID", "Name", "Author", "Genres"], MAX_W, MAX_H)
+            for n, row in enumerate(table):
+                self.main_win.addstr(n, 0, row, curses.A_REVERSE if n == cy * 2 + 1 else 0)
+                self.scr.move(cy * 2 + 5, 3)
+
+            self.refresh()
+            key = self.scr.getch()
+
+            if key == ESC:
+                break
+            elif key == UP and cy > 0:
+                cy -= 1
+            elif key == DOWN and cy < len(data):
+                cy += 1
+
+        self.step_back_path()
 
     def option_books_2(self):
         self.nothing()
@@ -336,6 +372,7 @@ class App:
 
 
 if __name__ == "__main__":
+    startup()
 
     @wrapper
     def main(stdscr):
