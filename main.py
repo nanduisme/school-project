@@ -44,7 +44,7 @@ class App:
         self.console.print(f"{self.get_path_str()}\n\n")
 
     def proceed(self):
-        self.console.print(F"[{SUCESS}]Press enter to proceed...")
+        self.console.print(f"[{SUCESS}]Press enter to proceed...")
         input()
 
     def get_path_str(self):
@@ -89,7 +89,7 @@ class App:
 
             if choice == 8:
                 self.clear()
-                self.console.print(F"[{SUCESS}]Closing app...[/]")
+                self.console.print(f"[{SUCESS}]Closing app...[/]")
                 sleep(1)
                 break
 
@@ -97,6 +97,8 @@ class App:
 
             if choice == 1:
                 self.books()
+            elif choice == 2:
+                self.students()
 
     def books(self):
         OPTIONS = ["New Book", "Remove Book", "Update Book", "All Books", "Back"]
@@ -113,9 +115,11 @@ class App:
                 self.clear()
                 self.header()
 
-                name = Prompt.ask(F"[{PROMPT}]Enter name of the book[/]")
-                author = Prompt.ask(F"[{PROMPT}]Enter name of the author[/]")
-                genre = Prompt.ask(F"[{PROMPT}]Enter book genres (seperated by space)[/]")
+                name = Prompt.ask(f"[{PROMPT}]Enter name of the book[/]")
+                author = Prompt.ask(f"[{PROMPT}]Enter name of the author[/]")
+                genre = Prompt.ask(
+                    f"[{PROMPT}]Enter book genres (seperated by space)[/]"
+                )
 
                 print("\n")
 
@@ -132,10 +136,10 @@ class App:
                 if confirm:
                     book_id, name = self.db.book_new(name, author, genre)
                     self.console.print(
-                        f"[{SUCESS}Your book [{HL}]{name}[/] has been added to the database with the BookID of [{HL}]{book_id}[/]."
+                        f"[{SUCESS}]Your book [{HL}]{name}[/] has been added to the database with the BookID of [{HL}]{book_id}[/]."
                     )
                 else:
-                    self.console.print(F"[{ERROR}]Entry cancelled.")
+                    self.console.print(f"[{ERROR}]Entry cancelled.")
 
                 self.proceed()
 
@@ -146,7 +150,7 @@ class App:
                 self.clear()
                 self.header()
 
-                book_id = IntPrompt.ask(F"[{PROMPT}]Enter ID of book to remove")
+                book_id = IntPrompt.ask(f"[{PROMPT}]Enter ID of book to remove")
 
                 print("\n")
 
@@ -170,7 +174,7 @@ class App:
                 self.clear()
                 self.header()
 
-                book_id = IntPrompt.ask(F"[{PROMPT}]Enter ID of book to edit")
+                book_id = IntPrompt.ask(f"[{PROMPT}]Enter ID of book to edit")
 
                 print("\n")
 
@@ -197,7 +201,9 @@ class App:
 
                 print("\n")
 
-                self.console.print(f"[{OPTION}]Enter updated values below. Leave empty for no change.")
+                self.console.print(
+                    f"[{OPTION}]Enter updated values below. Leave empty for no change."
+                )
                 name = Prompt.ask(f"[{PROMPT}]Enter new book name", default=rec[1])
                 author = Prompt.ask(f"[{PROMPT}]Enter new author", default=rec[2])
                 genres = Prompt.ask(f"[{PROMPT}]Enter new genres", default=rec[3])
@@ -208,13 +214,14 @@ class App:
                 table.add_row(str(book_id), name, author, genres, style="green")
 
                 self.console.print(table)
-                confirm = Confirm.ask(f"[{PROMPT}]Update record?")
-
-                if not confirm:
-                    self.console.print(f"[{ERROR}]Cancelling...")
-                else:
+                if confirm := Confirm.ask(f"[{PROMPT}]Update record?"):
                     self.db.book_update(book_id, name, author, genres)
-                    self.console.print(f"[{SUCESS}]Record with ID [{HL}]{book_id}[/] has been updated.")
+                    self.console.print(
+                        f"[{SUCESS}]Record with ID [{HL}]{book_id}[/] has been updated."
+                    )
+
+                else:
+                    self.console.print(f"[{ERROR}]Cancelling...")
 
                 self.proceed()
                 self.path.pop()
@@ -225,15 +232,204 @@ class App:
                 self.header()
 
                 data = self.db.book_all()
-                table = Table("ID", "Name", "Author", "Genres", title="Books", box=box.ROUNDED)
+                table = Table(
+                    "ID", "Name", "Author", "Genres", title="Books", box=box.ROUNDED
+                )
                 for rec in data:
                     table.add_row(*[str(x) for x in rec[:4]])
-                
+
                 self.console.print(table)
                 print("\n\n")
                 self.proceed()
                 self.path.pop()
                 continue
+
+    def students(self):  # sourcery skip: low-code-quality
+        OPTIONS = [
+            "New Student",
+            "Remove Student",
+            "Update Student",
+            "All Students",
+            "Back",
+        ]
+        while True:
+            choice = self.menu(OPTIONS)
+
+            if choice == 5:
+                self.path.pop()
+                break
+
+            self.path.append(OPTIONS[choice - 1].replace(" ...", ""))
+
+            if choice == 1:
+                self.clear()
+                self.header()
+
+                adm_no = IntPrompt.ask(f"[{PROMPT}]Enter addmission number of student")
+
+                if self.db.search_students_name_addm(f"#{adm_no}"):
+                    self.console.print(
+                        f"[{ERROR}]Admission number [{HL}]{adm_no}[/] already exists."
+                    )
+                    self.proceed()
+                    self.path.pop()
+                    continue
+
+                name = Prompt.ask(f"[{PROMPT}]Enter name of the student[/]")
+                class_ = IntPrompt.ask(f"[{PROMPT}]Enter class of student[/]")
+                div = Prompt.ask(
+                    f"[{PROMPT}]Enter division of student[/]",
+                    choices=list("ABCDEF"),
+                )
+
+                print("\n")
+
+                table = Table("Adm. Number", "Name", "Class", box=box.ROUNDED)
+                table.add_row(str(adm_no), name, f"{class_} {div}", style="green")
+                self.console.print(table)
+
+                confirm = Confirm.ask(
+                    f"[{PROMPT}]Do you want to add the above record to the database?"
+                )
+
+                print("\n")
+
+                if confirm:
+                    self.db.student_new(adm_no, name, class_, div)
+                    self.console.print(
+                        f"[{SUCESS}]Student '[{HL}]{name}[/]' has been added to the database"
+                    )
+                else:
+                    self.console.print(f"[{ERROR}]Entry cancelled.")
+
+                self.proceed()
+
+                self.path.pop()
+                continue
+
+            elif choice == 2:
+                self.clear()
+                self.header()
+
+                adm_no = IntPrompt.ask(
+                    f"[{PROMPT}]Enter admission number of student to remove"
+                )
+
+                print("\n")
+
+                output = self.db.student_remove(adm_no)
+
+                if output == -1:
+                    self.console.print(
+                        f"[{ERROR}]Book with adm. number [{HL}]{adm_no}[/] does not exist on the database"
+                    )
+                else:
+                    self.console.print(
+                        f"[{SUCESS}]Student with adm. number [{HL}]{adm_no}[/] has been deleted"
+                    )
+
+                self.proceed()
+                self.path.pop()
+                continue
+
+            elif choice == 3:
+                self.clear()
+                self.header()
+
+                adm_no_old = IntPrompt.ask(
+                    f"[{PROMPT}]Enter adm. number of student to edit"
+                )
+
+                print("\n")
+
+                rec = self.db.search_students_name_addm(f"#{adm_no_old}")
+                if not rec:
+                    self.console.print(
+                        f"[{ERROR}]No student with adm. number [{HL}]{adm_no_old}[/]."
+                    )
+                    self.proceed()
+                    self.path.pop()
+                    continue
+
+                rec = rec[0]
+
+                table = Table("Adm. Number", "Name", "Class", box=box.ROUNDED)
+                table.add_row(
+                    str(adm_no_old), rec[1], f"{rec[2]} {rec[3]}", style="blue"
+                )
+
+                self.console.print(table)
+                confirm = Confirm.ask(f"[{PROMPT}]Is this the record you want to edit?")
+
+                if not confirm:
+                    self.console.print(f"[{ERROR}]Cancelling...")
+                    self.proceed()
+                    self.path.pop()
+                    continue
+
+                print("\n")
+
+                self.console.print(
+                    f"[{OPTION}]Enter updated values below. Leave empty for no change."
+                )
+                adm_no = IntPrompt.ask(
+                    f"[{PROMPT}]Enter new adm. number", default=rec[0]
+                )
+
+                if self.db.search_students_name_addm(f"#{adm_no}"):
+                    self.console.print(
+                        f"[{ERROR}]Admission number [{HL}]{adm_no}[/] already exists."
+                    )
+                    self.proceed()
+                    self.path.pop()
+                    continue
+
+                name = Prompt.ask(f"[{PROMPT}]Enter new student name", default=rec[1])
+                class_ = IntPrompt.ask(f"[{PROMPT}]Enter new class", default=rec[2])
+                div = Prompt.ask(
+                    f"[{PROMPT}]Enter new division",
+                    default=rec[3],
+                    choices=list("ABCDEF"),
+                )
+
+                print("\n")
+
+                table = Table("Adm. Number", "Name", "Class", box=box.ROUNDED)
+                table.add_row(str(adm_no), name, f"{class_} {div}", style="green")
+
+                self.console.print(table)
+                if confirm := Confirm.ask(f"[{PROMPT}]Update record?"):
+                    self.db.student_update(adm_no_old, adm_no, name, class_, div)
+                    self.console.print(
+                        f"[{SUCESS}]Record with adm. number [{HL}]{adm_no_old}[/] has been updated."
+                    )
+
+                else:
+                    self.console.print(f"[{ERROR}]Cancelling...")
+                self.proceed()
+                self.path.pop()
+                continue
+
+            elif choice == 4:
+                self.clear()
+                self.header()
+
+                data = self.db.student_all()
+                table = Table(
+                    "Adm. No", "Name", "Class", title="Students", box=box.ROUNDED
+                )
+                for rec in data:
+                    rec = list(rec)
+                    rec[2] = f"{rec[2]} {rec[3]}"
+                    rec.pop(3)
+                    table.add_row(*[str(x) for x in rec[:4]])
+
+                self.console.print(table)
+                print("\n\n")
+                self.proceed()
+                self.path.pop()
+                continue
+
 
 if __name__ == "__main__":
     startup()

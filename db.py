@@ -66,7 +66,7 @@ class DatabaseManager:
         self.execute("SELECT * FROM BOOKS")
         return self.cur.fetchall()
 
-    def book_remove(self, id):
+    def book_remove(self, id):  # sourcery skip: class-extract-method
         self.execute(f"DELETE FROM BOOKS WHERE ID = {id}")
         self.commit()
 
@@ -101,14 +101,15 @@ class DatabaseManager:
         self.execute(f"DELETE FROM STUDENTS WHERE ADDM_NO = {addm_no}")
         self.commit()
 
-    def student_update(self, addm_no, name, class_, division):
+        return self.cur.rowcount or -1
+
+    def student_update(self,addm_no_old, addm_no_new, name, class_, division):
         self.execute(
             f"""UPDATE STUDENTS SET 
-            NAME='{name}', CLASS={class_}, DIVISION='{division}'
-            WHERE ADDM_NO={addm_no}
+            ADDM_NO={addm_no_new}, NAME='{name}', CLASS={class_}, DIVISION='{division}'
+            WHERE ADDM_NO={addm_no_old}
             """
         )
-
         self.commit()
 
     def search_books(self, query):
@@ -133,7 +134,17 @@ class DatabaseManager:
             return set(dataset)
 
     def search_students_name_addm(self, query):
-        ...
+        if query[0] == "#":
+            self.execute(
+                f"select ADDM_NO, NAME, CLASS, DIVISION from STUDENTS where ADDM_NO={query[1:]}"
+            )
+            return self.cur.fetchall()
+        else:
+            self.execute(
+                f"select ADDM_NO, NAME, CLASS, DIVISION from books where NAME LIKE '%{query}%'"
+            )
+            dataset = list(self.cur.fetchall())
+            return set(dataset)
 
     def search_students_class_div(self, query):
         ...
