@@ -232,6 +232,8 @@ class App:
                 self.console.print(table)
                 print("\n\n")
                 self.proceed()
+                self.path.pop()
+                continue
 
 if __name__ == "__main__":
     startup()
