@@ -36,7 +36,7 @@ class DatabaseManager:
         self.execute(
             """CREATE TABLE IF NOT EXISTS TRANSACTIONS (
                 ID INT(5) PRIMARY KEY AUTO_INCREMENT,
-                DATE_BORROWED DATE DEFAULT (CURRENT_DATE),
+                DATE_BORROWED DATE,
                 DATE_RETURNED DATE,
                 ADDM_NO INT(5) NOT NULL,
                 BOOK_ID INT(5) NOT NULL
@@ -125,6 +125,10 @@ class DatabaseManager:
 
     def search_students_class_div(self, query):
         ...
+
+    def overdue(self):
+        self.execute("SELECT * FROM TRANSACTIONS WHERE DATE_RETURNED IS NULL")
+        return ret if ((ret := self.cur.fetchall())) else 0
 
 
 if __name__ == "__main__":

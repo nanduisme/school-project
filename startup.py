@@ -7,14 +7,14 @@ from rich.prompt import Prompt, IntPrompt, FloatPrompt
 console = Console()
 
 
-def get_input_if_currupt(value, type_, prompt, prompt_type):
+def get_input_if_currupt(value, type_, prompt, prompt_type, p=False):
     if isinstance(value, type_):
         return value
     console.print(
         "Existing data is not of the right format, please enter it again.",
         style="red bold",
     )
-    return prompt_type.ask(prompt)
+    return prompt_type.ask(prompt, password=p)
 
 
 USERNAME_PROMPT = "[blue bold]MySQL user name[/]"
@@ -49,16 +49,20 @@ def startup():
 
     # Checks if file data is valid else gets new values and dumps to file
     username = get_input_if_currupt(data[0], str, USERNAME_PROMPT, Prompt)
-    password = get_input_if_currupt(data[1], PASSWORD_PROMPT, str)
-    max_books = get_input_if_currupt(data[2], MAX_BOOKS_PROMPT, int)
-    max_days = get_input_if_currupt(data[3], MAX_DAYS_PROMPT, int)
-    fine_per_day = get_input_if_currupt(data[4], FINE_PER_DAY_PROMPT, int)
+    password = get_input_if_currupt(data[1], str, PASSWORD_PROMPT, Prompt, True)
+    max_books = get_input_if_currupt(data[2], int, MAX_BOOKS_PROMPT, IntPrompt)
+    max_days = get_input_if_currupt(data[3], int, MAX_DAYS_PROMPT, IntPrompt)
+    fine_per_day = get_input_if_currupt(
+        data[4], (float, int), FINE_PER_DAY_PROMPT, FloatPrompt
+    )
 
     f.close()
     f = open(".config", "wb+")
 
     pickle.dump([username, password, max_books, max_days, fine_per_day], f)
 
+    console.print("Opening program...", style="green")
+    sleep(1)
     return data
 
 
