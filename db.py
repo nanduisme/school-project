@@ -1,5 +1,4 @@
 from datetime import datetime
-from mysql.connector import connect
 
 
 class DatabaseManager:
@@ -71,8 +70,10 @@ class DatabaseManager:
         self.execute(f"DELETE FROM BOOKS WHERE ID = {id}")
         self.commit()
 
+        return self.cur.rowcount or -1
+
     def book_update(self, id, name, author, genres):
-        timestamp = f"{datetime.today().strftime('%Y-%m-%d %H:%M:%S')}"
+        timestamp = f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
 
         self.execute(
             f"""UPDATE BOOKS SET 
@@ -112,13 +113,24 @@ class DatabaseManager:
 
     def search_books(self, query):
         if query[0] == "#":
-            ...
-        elif query[0] == "+":
-            ...
-        elif query[0] == "-":
-            ...
+            self.execute(
+                f"select ID, NAME, AUTHOR, GENRE from books where ID={query[1:]}"
+            )
+            return self.cur.fetchall()
         else:
-            ...
+            self.execute(
+                f"select ID, NAME, AUTHOR, GENRE from books where NAME LIKE '%{query}%'"
+            )
+            dataset = list(self.cur.fetchall())
+            self.execute(
+                f"select ID, NAME, AUTHOR, GENRE from books where AUTHOR LIKE '%{query}%'"
+            )
+            dataset.extend(iter(self.cur.fetchall()))
+            self.execute(
+                f"select ID, NAME, AUTHOR, GENRE from books where GENRE LIKE '%{query}%'"
+            )
+            dataset.extend(iter(self.cur.fetchall()))
+            return set(dataset)
 
     def search_students_name_addm(self, query):
         ...
@@ -132,6 +144,8 @@ class DatabaseManager:
 
 
 if __name__ == "__main__":
+    from mysql.connector import connect
+
     db = DatabaseManager(
         connect(host="localhost", user="root", passwd="root", charset="utf8")
     )
