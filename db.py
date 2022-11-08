@@ -103,7 +103,7 @@ class DatabaseManager:
 
         return self.cur.rowcount or -1
 
-    def student_update(self,addm_no_old, addm_no_new, name, class_, division):
+    def student_update(self, addm_no_old, addm_no_new, name, class_, division):
         self.execute(
             f"""UPDATE STUDENTS SET 
             ADDM_NO={addm_no_new}, NAME='{name}', CLASS={class_}, DIVISION='{division}'
@@ -133,7 +133,7 @@ class DatabaseManager:
             dataset.extend(iter(self.cur.fetchall()))
             return set(dataset)
 
-    def search_students_name_addm(self, query):
+    def search_students_name_adm(self, query):
         if query[0] == "#":
             self.execute(
                 f"select ADDM_NO, NAME, CLASS, DIVISION from STUDENTS where ADDM_NO={query[1:]}"
@@ -141,7 +141,7 @@ class DatabaseManager:
             return self.cur.fetchall()
         else:
             self.execute(
-                f"select ADDM_NO, NAME, CLASS, DIVISION from books where NAME LIKE '%{query}%'"
+                f"select ADDM_NO, NAME, CLASS, DIVISION from STUDENTS where NAME LIKE '%{query}%'"
             )
             dataset = list(self.cur.fetchall())
             return set(dataset)

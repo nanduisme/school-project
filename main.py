@@ -99,6 +99,8 @@ class App:
                 self.books()
             elif choice == 2:
                 self.students()
+            elif choice == 3:
+                self.search()
 
     def books(self):
         OPTIONS = ["New Book", "Remove Book", "Update Book", "All Books", "Back"]
@@ -244,7 +246,7 @@ class App:
                 self.path.pop()
                 continue
 
-    def students(self):  # sourcery skip: low-code-quality
+    def students(self):
         OPTIONS = [
             "New Student",
             "Remove Student",
@@ -267,7 +269,7 @@ class App:
 
                 adm_no = IntPrompt.ask(f"[{PROMPT}]Enter addmission number of student")
 
-                if self.db.search_students_name_addm(f"#{adm_no}"):
+                if self.db.search_students_name_adm(f"#{adm_no}"):
                     self.console.print(
                         f"[{ERROR}]Admission number [{HL}]{adm_no}[/] already exists."
                     )
@@ -342,7 +344,7 @@ class App:
 
                 print("\n")
 
-                rec = self.db.search_students_name_addm(f"#{adm_no_old}")
+                rec = self.db.search_students_name_adm(f"#{adm_no_old}")
                 if not rec:
                     self.console.print(
                         f"[{ERROR}]No student with adm. number [{HL}]{adm_no_old}[/]."
@@ -376,7 +378,7 @@ class App:
                     f"[{PROMPT}]Enter new adm. number", default=rec[0]
                 )
 
-                if self.db.search_students_name_addm(f"#{adm_no}"):
+                if self.db.search_students_name_adm(f"#{adm_no}"):
                     self.console.print(
                         f"[{ERROR}]Admission number [{HL}]{adm_no}[/] already exists."
                     )
@@ -430,6 +432,90 @@ class App:
                 self.path.pop()
                 continue
 
+    def search(self):
+        OPTIONS = ["Books", "Students...", "Transactions...", "Back"]
+        while True:
+            choice = self.menu(OPTIONS)
+
+            if choice == 4:
+                self.path.pop()
+                break
+
+            self.path.append(OPTIONS[choice - 1].replace(" ...", ""))
+
+            if choice == 1:
+                self.clear()
+                self.header()
+
+                self.console.print(
+                    f"[blue b]Start your query with [{HL}]#[/] to search by ID.[/]",
+                    "[blue b]Simply type a query to search by name, author or genre[/]",
+                    "",
+                    sep="\n",
+                )
+
+                query = Prompt.ask(f"[{PROMPT}]Enter your query[/]")
+                dataset = self.db.search_books(query)
+                print("\n")
+                if not dataset:
+                    self.console.print(f"[{ERROR}]Empty dataset!")
+                    self.proceed()
+                    self.path.pop()
+                    continue
+
+                table = Table("ID", "Name", "Author", "Genres", box=box.ROUNDED)
+                for rec in dataset:
+                    table.add_row(*[str(x) for x in rec[:4]])
+
+                self.console.print(table)
+                self.proceed()
+                self.path.pop()
+                continue
+            elif choice == 2:
+                self.search_students()
+
+    def search_students(self):
+        OPTIONS = ["By adm. number or name", "By class and/or division", "Back"]
+        while True:
+            choice = self.menu(OPTIONS)
+
+            if choice == 3:
+                self.path.pop()
+                break
+
+            self.path.append(OPTIONS[choice - 1].replace(" ...", ""))
+
+            if choice == 1:
+                self.clear()
+                self.header()
+
+                self.console.print(
+                    f"[blue b]Start your query with [{HL}]#[/] to search by adm. number.[/]",
+                    "[blue b]Simply type a query to search by name.[/]",
+                    "",
+                    sep="\n",
+                )
+
+                query = Prompt.ask(f"[{PROMPT}]Enter your query[/]")
+                dataset = self.db.search_students_name_adm(query)
+                print("\n")
+                if not dataset:
+                    self.console.print(f"[{ERROR}]Empty dataset!")
+                    self.proceed()
+                    self.path.pop()
+                    continue
+
+                table = Table("Adm Number", "Name", "Class", box=box.ROUNDED)
+                for rec in dataset:
+                    rec = list(rec)
+                    rec[2] = f"{rec[2]} {rec[3]}"
+                    rec.pop(3)
+                    table.add_row(*[str(x) for x in rec[:4]])
+                    
+                self.console.print(table)
+                self.proceed()
+                self.path.pop()
+                continue
 
 if __name__ == "__main__":
     startup()
