@@ -1,335 +1,98 @@
-try:
-    import curses
-    from curses import wrapper
-except ImportError:
-    print("Please install the necessary libraries to use this app\n")
-    print(
-        "Locate into the app folder via your terminal and type\n\n\tpip install -r requirements.txt\n"
-    )
-    print("and hit enter to install all the essential libraries.\n")
-    print("Use a monospace font for best experience.")
-    quit()
-
-from curses.ascii import ESC
+import os
 from time import sleep
 
-Q = (ord("q"), ord("Q"))
-W = (ord("w"), ord("W"))
-S = (ord("s"), ord("S"))
-DOWN = curses.KEY_DOWN
-UP = curses.KEY_UP
-ENTER = 10
+from mysql.connector import connect
+from rich.console import Console
+from rich.prompt import Prompt
+
+from db import DatabaseManager
+from startup import get_config, startup
 
 
 class App:
-    def __init__(self, stdscr) -> None:
-        self.scr = stdscr
-        self.scr.clear()
-        self.clear(stdscr)
+    def __init__(self) -> None:
+        self.console = Console()
+        self.path = ["Home"]
 
-        MAX_H, MAX_W = stdscr.getmaxyx()
-        mid = lambda str: MAX_W // 2 - len(str) // 2
-        stdscr.addstr(0, mid(s := " LIBRARY MANAGEMENT SYSTEM "), s, curses.A_BOLD)
-
-        self.main_win = curses.newwin(MAX_H - 5, MAX_W - 2, 4, 1)
-        self.main_win.box()
-
-        self.path = ["HOME"]
-        self.path_win = curses.newwin(3, MAX_W - 2, 1, 1)
-        self.update_path()
-
-        self.HOME_OPTIONS = [
-            "Search ...",
-            "Borrow book",
-            "Return book",
-            "Overdue (n)",
-            "Books ...",
-            "Students ...",
-            "Edit settings",
-        ]
+        self.config = get_config()
+        self.db = DatabaseManager(
+            connect(
+                host="localhost",
+                user=self.config[0],
+                password=self.config[1],
+                charset="utf8",
+            )
+        )
 
         self.run()
 
-    # Clear and redraw a window
-    def clear(self, win):
-        win.erase()
-        win.box()
+    def clear(self):
+        os.system("cls")
 
-    # Refresh all windows
-    def refresh(self):
-        self.scr.refresh()
-        self.path_win.refresh()
-        self.main_win.refresh()
-
-    # Edit path
-    def update_path(self):
-        self.clear(self.path_win)
-        self.path_win.addstr(1, 2, self.path[0], curses.A_BOLD)
-        remaining_path = ""
-
+    def get_path_str(self):
+        s = "[blue][b]Home[/]"
         for p in self.path[1:]:
-            remaining_path += f" > {p}"
+            s += f" > {p}"
+        s += "[/]"
+        return s
 
-        self.path_win.addstr(1, 6, remaining_path)
-        self.refresh()
-
-    def add_to_path(self, submenu: str):
-        if submenu.split()[-1] == "...":
-            submenu = " ".join(submenu.split()[:-1])
-
-        self.path.append(submenu)
-        self.update_path()
-
-    def step_back_path(self):
-        self.path.pop()
-        self.update_path()
-
-    # Menu function
-    def menu(self, options: list):
-        # Selector postiion
-        cy = 0
-        # Highlight function
-        hl = lambda row: curses.A_REVERSE if cy == row else 0
-
+    def menu(self, options):
+        err = ""
         while True:
-            self.main_win.erase()
-            self.main_win.box()
+            self.clear()
+            self.console.print("[green b u]LIBRARY MANAGEMENT SYSTEM[/]\n\n")
+            self.console.print(f"{self.get_path_str()}\n\n")
 
-            self.main_win.addstr(cy + 1, 1, ">")
+            for n, option in enumerate(options, 1):
+                self.console.print(f"[magenta u]{n}[/]. {option}")
 
-            for i, option in enumerate(options):
-                self.main_win.addstr(i + 1, 3, option, hl(i))
-            
-            self.scr.move(cy + 5, 4)
+            choice = Prompt.ask(
+                f"\n\n[red b]{err}[/]\n[cyan b]Enter a choice [1-{len(options)}]"
+            )
 
-            self.refresh()
+            if choice not in [str(x) for x in range(1, len(options) + 1)]:
+                err = "Please enter a valid choice"
+                continue
 
-            key = self.scr.getch()
+            return int(choice)
 
-            if (key == UP or key in W) and cy > 0:
-                cy -= 1
-            elif (key == DOWN or key in S) and cy < len(options) - 1:
-                cy += 1
-
-            # QUIT
-            elif key in Q or key == ESC:
-                self.clear(self.main_win)
-                return -1
-
-            # SUBMIT
-            elif key == ENTER:
-                self.clear(self.main_win)
-                self.refresh()
-                return cy
-
-    # TODO: remove
-    def nothing(self):
-        self.menu([])
-        self.step_back_path()
-
-    # FUNCTIONS FOR HOME MENU OPTIONS
-
-    def option_search(self):
-        OPTIONS = ["Books", "Students ...", "Transactions ..."]
-        while True:
-            choice = self.menu(OPTIONS)
-
-            if choice == -1:
-                self.step_back_path()
-                return
-
-            self.add_to_path(OPTIONS[choice])
-
-            choice_actions = [
-                self.option_search_0,
-                self.option_search_1,
-                self.option_search_2,
-            ]
-            choice_actions[choice]()
-
-    def option_borrow(self):
-        self.nothing()
-
-    def option_return(self):
-        self.nothing()
-
-    def option_overdue(self):
-        self.nothing()
-
-    def option_books(self):
-        OPTIONS = ["New book", "All books", "Remove book", "Update book"]
-        while True:
-            choice = self.menu(OPTIONS)
-
-            if choice == -1:
-                self.step_back_path()
-                return
-
-            self.add_to_path(OPTIONS[choice])
-
-            choice_actions = [
-                self.option_books_0,
-                self.option_books_1,
-                self.option_books_2,
-                self.option_books_3,
-            ]
-            choice_actions[choice]()
-
-    def option_students(self):
-        OPTIONS = ["New student", "All students", "Remove student", "Update student"]
-        while True:
-            choice = self.menu(OPTIONS)
-
-            if choice == -1:
-                self.step_back_path()
-                return
-
-            self.add_to_path(OPTIONS[choice])
-
-            choice_actions = [
-                self.option_students_0,
-                self.option_students_1,
-                self.option_students_2,
-                self.option_students_3,
-            ]
-            choice_actions[choice]()
-
-    def option_edit_settings(self):
-        self.clear(self.main_win)
-        sample_table = [(i, chr(ord("a") + i) * 8, float(i)) for i in range(26)]
-        headings = ["ID", "Name", "Float"]
-
-        columns = []
-
-    # FUNCTIONS FOR SUBMENUS
-
-    # Submenus for search option
-
-    def option_search_0(self):
-        self.nothing()
-
-    def option_search_1(self):
-        OPTIONS = ["By name/addmission number", "By class"]
-        while True:
-            choice = self.menu(OPTIONS)
-
-            if choice == -1:
-                self.step_back_path()
-                return
-
-            self.add_to_path(OPTIONS[choice])
-
-            choice_actions = [self.option_search_10, self.option_search_11]
-            choice_actions[choice]()
-
-    # Sub-submenus for search student
-
-    def option_search_10(self):
-        self.nothing()
-
-    def option_search_11(self):
-        self.nothing()
-
-    def option_search_2(self):
+    def run(self):
         OPTIONS = [
-            "Full history",
-            "By borrow date",
-            "By return date",
-            "By student",
-            "By book",
+            "Books ...",
+            "Students ...",
+            "Search ...",
+            "Borrow book",
+            "Return book",
+            f"Overdue ({self.db.overdue()})",
+            "Edit settings",
+            "Quit",
         ]
         while True:
             choice = self.menu(OPTIONS)
 
-            if choice == -1:
-                self.step_back_path()
-                return
+            if choice == 8:
+                self.clear()
+                self.console.print("[green b]Closing app...")
+                sleep(1)
+                break
 
-            self.add_to_path(OPTIONS[choice])
+            self.path.append(OPTIONS[choice - 1].replace(" ...", ""))
 
-            choice_actions = [
-                self.option_search_20,
-                self.option_search_21,
-                self.option_search_22,
-                self.option_search_23,
-                self.option_search_24,
-            ]
-            choice_actions[choice]()
+            if choice == 1:
+                self.books()
 
-    # Sub-submenus for search transactions
-
-    def option_search_20(self):
-        self.nothing()
-
-    def option_search_21(self):
-        self.nothing()
-
-    def option_search_22(self):
-        self.nothing()
-
-    def option_search_23(self):
-        self.nothing()
-
-    def option_search_24(self):
-        self.nothing()
-
-    # Submenus for books option
-
-    def option_books_0(self):
-        self.nothing()
-
-    def option_books_1(self):
-        self.nothing()
-
-    def option_books_2(self):
-        self.nothing()
-
-    def option_books_3(self):
-        self.nothing()
-
-    # Submenus for students option
-
-    def option_students_0(self):
-        self.nothing()
-
-    def option_students_1(self):
-        self.nothing()
-
-    def option_students_2(self):
-        self.nothing()
-
-    def option_students_3(self):
-        self.nothing()
-
-    def run(self):
+    def books(self):
+        OPTIONS = ["New Book", "Remove Book", "Update Book", "All Books", "Back"]
         while True:
-            choice = self.menu(self.HOME_OPTIONS)
+            choice = self.menu(OPTIONS)
 
-            # Quit from program
-            if choice == -1:
-                self.main_win.addstr(5, 5, "QUITTING...", curses.A_BOLD)
-                self.refresh()
-                sleep(2)
+            if choice == 5:
+                self.path.pop()
+                break
 
-                return
-
-            self.add_to_path(self.HOME_OPTIONS[choice])
-
-            choice_actions = [
-                self.option_search,
-                self.option_borrow,
-                self.option_return,
-                self.option_overdue,
-                self.option_books,
-                self.option_students,
-                self.option_edit_settings,
-            ]
-
-            choice_actions[choice]()
+            self.path.append(OPTIONS[choice - 1].replace(" ...", ""))
 
 
 if __name__ == "__main__":
-
-    @wrapper
-    def main(stdscr):
-        App(stdscr)
+    startup()
+    App()
