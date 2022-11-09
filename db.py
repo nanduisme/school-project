@@ -38,7 +38,8 @@ class DatabaseManager:
                 DATE_BORROWED DATE,
                 DATE_RETURNED DATE,
                 ADDM_NO INT(5) NOT NULL,
-                BOOK_ID INT(5) NOT NULL
+                BOOK_ID INT(5) NOT NULL,
+                TIMESTAMP TIMESTAMP NOT NULL
             )"""
         )
 
@@ -84,10 +85,10 @@ class DatabaseManager:
 
         self.commit()
 
-    def student_new(self, addm_no, name, class_, division):
+    def student_new(self, addm_no, name, grade, division):
         self.execute(
             f"""INSERT INTO STUDENTS VALUES (
-                {addm_no}, '{name}', {class_}, '{division}'   
+                {addm_no}, '{name}', {grade}, '{division}'   
             )"""
         )
 
@@ -103,10 +104,10 @@ class DatabaseManager:
 
         return self.cur.rowcount or -1
 
-    def student_update(self, addm_no_old, addm_no_new, name, class_, division):
+    def student_update(self, addm_no_old, addm_no_new, name, grade, division):
         self.execute(
             f"""UPDATE STUDENTS SET 
-            ADDM_NO={addm_no_new}, NAME='{name}', CLASS={class_}, DIVISION='{division}'
+            ADDM_NO={addm_no_new}, NAME='{name}', CLASS={grade}, DIVISION='{division}'
             WHERE ADDM_NO={addm_no_old}
             """
         )
@@ -146,13 +147,35 @@ class DatabaseManager:
             dataset = list(self.cur.fetchall())
             return set(dataset)
 
-    def search_students_class_div(self, query):
-        ...
+    def search_students_gradediv(self, grade=None, div=None):
+        dataset = []
+
+        if grade:
+            self.execute(
+                f"select ADDM_NO, NAME, CLASS, DIVISION from STUDENTS where CLASS={grade}"
+            )
+            dataset.extend(self.cur.fetchall())
+
+        if div:
+            self.execute(
+                f"select ADDM_NO, NAME, CLASS, DIVISION from STUDENTS where DIVISION='{div}'"
+            )
+            dataset.extend(self.cur.fetchall())
+
+        return set(dataset)
 
     def overdue(self):
         self.execute("SELECT * FROM TRANSACTIONS WHERE DATE_RETURNED IS NULL")
-        return ret if ((ret := self.cur.fetchall())) else 0
+        return len(ret) if ((ret := self.cur.fetchall())) else 0
 
+    def borrow(self, book_id, adm_no):
+        date = datetime.date()
+        self.execute(f"""
+        insert into TRANSACTIONS(DATE_BORROWED, ADDM_NO, BOOK_ID) 
+        values ('{date!s}', {adm_no}, {book_id})
+        """)
+        
+        
 
 if __name__ == "__main__":
     from mysql.connector import connect

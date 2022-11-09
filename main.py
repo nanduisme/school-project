@@ -67,6 +67,9 @@ class App:
                 f"\n\n[{ERROR}]{err}[/]\n[{CHOICE}]Enter a choice [1-{len(options)}][/]"
             )
 
+            if choice in "qQ":
+                return len(options) 
+
             if choice not in [str(x) for x in range(1, len(options) + 1)]:
                 err = "Please enter a valid choice"
                 continue
@@ -278,7 +281,7 @@ class App:
                     continue
 
                 name = Prompt.ask(f"[{PROMPT}]Enter name of the student[/]")
-                class_ = IntPrompt.ask(f"[{PROMPT}]Enter class of student[/]")
+                grade = IntPrompt.ask(f"[{PROMPT}]Enter class of student[/]")
                 div = Prompt.ask(
                     f"[{PROMPT}]Enter division of student[/]",
                     choices=list("ABCDEF"),
@@ -287,7 +290,7 @@ class App:
                 print("\n")
 
                 table = Table("Adm. Number", "Name", "Class", box=box.ROUNDED)
-                table.add_row(str(adm_no), name, f"{class_} {div}", style="green")
+                table.add_row(str(adm_no), name, f"{grade} {div}", style="green")
                 self.console.print(table)
 
                 confirm = Confirm.ask(
@@ -297,7 +300,7 @@ class App:
                 print("\n")
 
                 if confirm:
-                    self.db.student_new(adm_no, name, class_, div)
+                    self.db.student_new(adm_no, name, grade, div)
                     self.console.print(
                         f"[{SUCESS}]Student '[{HL}]{name}[/]' has been added to the database"
                     )
@@ -387,7 +390,7 @@ class App:
                     continue
 
                 name = Prompt.ask(f"[{PROMPT}]Enter new student name", default=rec[1])
-                class_ = IntPrompt.ask(f"[{PROMPT}]Enter new class", default=rec[2])
+                grade = IntPrompt.ask(f"[{PROMPT}]Enter new class", default=rec[2])
                 div = Prompt.ask(
                     f"[{PROMPT}]Enter new division",
                     default=rec[3],
@@ -397,11 +400,11 @@ class App:
                 print("\n")
 
                 table = Table("Adm. Number", "Name", "Class", box=box.ROUNDED)
-                table.add_row(str(adm_no), name, f"{class_} {div}", style="green")
+                table.add_row(str(adm_no), name, f"{grade} {div}", style="green")
 
                 self.console.print(table)
                 if confirm := Confirm.ask(f"[{PROMPT}]Update record?"):
-                    self.db.student_update(adm_no_old, adm_no, name, class_, div)
+                    self.db.student_update(adm_no_old, adm_no, name, grade, div)
                     self.console.print(
                         f"[{SUCESS}]Record with adm. number [{HL}]{adm_no_old}[/] has been updated."
                     )
@@ -441,7 +444,7 @@ class App:
                 self.path.pop()
                 break
 
-            self.path.append(OPTIONS[choice - 1].replace(" ...", ""))
+            self.path.append(OPTIONS[choice - 1].replace("...", ""))
 
             if choice == 1:
                 self.clear()
@@ -473,6 +476,8 @@ class App:
                 continue
             elif choice == 2:
                 self.search_students()
+            elif choice == 3:
+                self.search_transactions()
 
     def search_students(self):
         OPTIONS = ["By adm. number or name", "By class and/or division", "Back"]
@@ -483,7 +488,7 @@ class App:
                 self.path.pop()
                 break
 
-            self.path.append(OPTIONS[choice - 1].replace(" ...", ""))
+            self.path.append(OPTIONS[choice - 1].replace("...", ""))
 
             if choice == 1:
                 self.clear()
@@ -511,11 +516,66 @@ class App:
                     rec[2] = f"{rec[2]} {rec[3]}"
                     rec.pop(3)
                     table.add_row(*[str(x) for x in rec[:4]])
-                    
+
                 self.console.print(table)
                 self.proceed()
                 self.path.pop()
                 continue
+
+            elif choice == 2:
+                self.clear()
+                self.header()
+
+                self.console.print(
+                    "Enter grade and division to search.",
+                    "Leave grade empty to get all records with given division and vice versa.\n",
+                    sep="\n",
+                    style="blue b",
+                )
+
+                grade = IntPrompt.ask(
+                    f"[{PROMPT}]Enter grade", default=0, show_default=False
+                )
+                div = Prompt.ask(
+                    f"[{PROMPT}]Enter division", choices=list("ABCDEF") + ["None"]
+                )
+
+                dataset = self.db.search_students_gradediv(grade, div)
+
+                if not dataset:
+                    self.console.print(f"[{ERROR}]Empty dataset!")
+                    self.proceed()
+                    self.path.pop()
+                    continue
+
+                table = Table("Adm Number", "Name", "Class", box=box.ROUNDED)
+                for rec in dataset:
+                    rec = list(rec)
+                    rec[2] = f"{rec[2]} {rec[3]}"
+                    rec.pop(3)
+                    table.add_row(*[str(x) for x in rec[:4]])
+
+                self.console.print(table)
+                self.proceed()
+                self.path.pop()
+                continue
+
+    def search_transactions(self):
+        OPTIONS = [
+            "Full history",
+            "By borrow date",
+            "By return date",
+            "By book",
+            "By student",
+            "Back",
+        ]
+
+        while True:
+            choice = self.menu(OPTIONS)
+
+            if choice == len(OPTIONS):
+                self.path.pop()
+                break
 
 if __name__ == "__main__":
     startup()
