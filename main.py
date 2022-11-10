@@ -1,14 +1,26 @@
 import os
 from time import sleep
 
-from mysql.connector import connect
-from rich.console import Console
-from rich.prompt import Prompt, IntPrompt, Confirm
-from rich.table import Table
-from rich import box
+try:
+    from mysql.connector import connect
+    from rich.console import Console
+    from rich.prompt import Prompt, IntPrompt, Confirm
+    from rich.table import Table
+    from rich import box
 
-from db import DatabaseManager
-from startup import get_config, startup
+    from db import DatabaseManager
+    from startup import get_config, startup
+except ImportError:
+    print("Please install required libraries for this app.")
+    path = os.path.dirname(os.path.realpath(__file__))
+    print(
+        "Please open your terminal and type the following commands:\n",
+        f"\tcd '{path}'",
+        f"\tpython -m pip install -r requirements.txt\n",
+        "and re-run the file.",
+        sep="\n",
+    )
+    quit()
 
 PROMPT = "yellow"
 ERROR = "red b"
@@ -68,7 +80,7 @@ class App:
             )
 
             if choice in "qQ":
-                return len(options) 
+                return len(options)
 
             if choice not in [str(x) for x in range(1, len(options) + 1)]:
                 err = "Please enter a valid choice"
@@ -576,6 +588,7 @@ class App:
             if choice == len(OPTIONS):
                 self.path.pop()
                 break
+
 
 if __name__ == "__main__":
     startup()
