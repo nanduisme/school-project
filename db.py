@@ -289,4 +289,34 @@ if __name__ == "__main__":
         connect(host="localhost", user="root", passwd="root", charset="utf8")
     )
 
-    db.book_new("Newbook", "me", "Nice")
+    STUDENTS_SAMPLE = [
+        (7079, "Nandagopal M", 2, "F",),
+        (7080, "Nirmal D", 10, "E",),
+        (7081, "Pranav P R", 4, "F",),
+        (7082, "Megha A A", 11, "A",),
+        (7083, "Sayuj", 8, "F",),
+        (7084, "Adithyan C A", 2, "C",),
+        (7085, "Namitha N", 12, "B",),
+        (7086, "Aswin P", 11, "A",),
+        (7087, "Manav P", 9, "E",),
+        (7088, "Sreerag S", 5, "F",),
+        (7089, "Ananya A", 9, "D",),
+    ]
+
+    BOOKS_SAMPLE =[
+        ("Jungle Book", "Ruskin Bond", "Kids Fantasy Fiction"),
+        ("The Fault In Our Stars", "John Green", "Fiction Romance"),
+        ("The Encyclopedia of Jokes", "The Frairs Club", "Comedy Info Non-Fiction"),
+        ("Dog-Man", "Dave Pilkey", "Comedy Kids Fiction Fantasy"),
+        ("Narasimha", "Kevin Missal", "Fantasy Fiction Mythology"),
+        ("Sapiens", "Yuval Nova Harari", "Info Non-Fiction Science"),
+        ("Harry Potter and the Philosophers Stone", "J K Rowling", "Fantasy Fiction Kids"),
+        ("Percy Jackson and the Lightning Theif", "Rick Riordan", "Fiction Fantasy Kids Mythology"),
+        ("Diary of a Wimpy Kid", "Jeff Kinney", "Fiction Kids Comedy"),
+    ]
+
+    # for s in STUDENTS_SAMPLE:
+    #     db.student_new(*s)
+
+    # for b in BOOKS_SAMPLE:
+    #     db.book_new(*b)
