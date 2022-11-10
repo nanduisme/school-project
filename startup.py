@@ -65,10 +65,17 @@ def startup():
     sleep(1)
     return data
 
+class Config:
+    def __init__(self, username, password, max_books, max_days, finer_per_day):
+        self.username = username
+        self.password = password
+        self.max_books = max_books
+        self.max_days = max_days
+        self.fine_per_day = finer_per_day
 
 def get_config():
     with open(".config", "rb") as f:
-        return pickle.load(f)
+        return Config(*pickle.load(f))
 
 
 if __name__ == "__main__":

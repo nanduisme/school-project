@@ -1,10 +1,13 @@
 from datetime import datetime
+from startup import get_config
 
 
 class DatabaseManager:
     def __init__(self, connection):
         self.con = connection
         self.cur = connection.cursor()
+
+        self.config = get_config()
 
         self.books = {
             "new": self.book_new,
@@ -38,8 +41,7 @@ class DatabaseManager:
                 DATE_BORROWED DATE,
                 DATE_RETURNED DATE,
                 ADDM_NO INT(5) NOT NULL,
-                BOOK_ID INT(5) NOT NULL,
-                TIMESTAMP TIMESTAMP NOT NULL
+                BOOK_ID INT(5) NOT NULL
             )"""
         )
 
@@ -85,6 +87,13 @@ class DatabaseManager:
 
         self.commit()
 
+    def is_book_available(self, book_id):
+        self.execute(
+            f"select count(*) from transactions where book_id={book_id} and date_returned is null"
+        )
+
+        return not self.cur.fetchall()[0][0]
+
     def student_new(self, addm_no, name, grade, division):
         self.execute(
             f"""INSERT INTO STUDENTS VALUES (
@@ -98,8 +107,8 @@ class DatabaseManager:
         self.execute("SELECT * FROM STUDENTS")
         return self.cur.fetchall()
 
-    def student_remove(self, addm_no):
-        self.execute(f"DELETE FROM STUDENTS WHERE ADDM_NO = {addm_no}")
+    def student_remove(self, adm_no):
+        self.execute(f"DELETE FROM STUDENTS WHERE ADDM_NO = {adm_no}")
         self.commit()
 
         return self.cur.rowcount or -1
@@ -113,69 +122,165 @@ class DatabaseManager:
         )
         self.commit()
 
+    def get_no_books_taken_by_student(self, adm_no):
+        self.execute(
+            f"select count(*) from transactions where addm_no={adm_no} and date_returned is null"
+        )
+
+        return self.cur.fetchall()[0][0]
+
+    def get_fine(self, adm_no, book_id):
+        self.execute(
+            f"select * from transactions where addm_no={adm_no} and book_id={book_id} and date_returned is null"
+        )
+
+        t = self.cur.fetchall()[0]
+        days = (datetime.now().date() - t[1]).days
+        return days * self.config.fine_per_day if days >= self.config.max_days else 0
+
+    def borrow(self, adm_no, book_id):
+        date = datetime.now().date()
+
+        self.execute(
+            f"""
+            insert into transactions(DATE_BORROWED, ADDM_NO, BOOK_ID) values (
+                '{date!s}', {adm_no}, {book_id}
+            )
+            """
+        )
+
+        self.commit()
+
+    def return_book(self, adm_no, book_id):
+        self.execute(
+            f"""
+            update transactions set date_returned='{datetime.now().date()!s}'
+            where addm_no={adm_no} and book_id={book_id}
+            """
+        )
+
+        self.commit()
+
+    def is_valid_return(self, adm_no, book_id):
+        self.execute(
+            f"""
+            select * from transactions where
+            addm_no={adm_no} and book_id={book_id} and date_returned is null
+            """
+        )
+
+        return bool(self.cur.fetchall())
+
     def search_books(self, query):
+        if not query:
+            return []
+
         if query[0] == "#":
             self.execute(
-                f"select ID, NAME, AUTHOR, GENRE from books where ID={query[1:]}"
+                f"select ID, NAME, AUTHOR, GENRE from books where ID={query[1:] if query != '#' else '0'}"
             )
-            return self.cur.fetchall()
         else:
             self.execute(
-                f"select ID, NAME, AUTHOR, GENRE from books where NAME LIKE '%{query}%'"
+                f"""
+                select ID, NAME, AUTHOR, GENRE from books where 
+                NAME LIKE '%{query}%'
+                OR AUTHOR LIKE '%{query}%'
+                OR GENRE LIKE '%{query}%'
+                """
             )
-            dataset = list(self.cur.fetchall())
-            self.execute(
-                f"select ID, NAME, AUTHOR, GENRE from books where AUTHOR LIKE '%{query}%'"
-            )
-            dataset.extend(iter(self.cur.fetchall()))
-            self.execute(
-                f"select ID, NAME, AUTHOR, GENRE from books where GENRE LIKE '%{query}%'"
-            )
-            dataset.extend(iter(self.cur.fetchall()))
-            return set(dataset)
+
+        return self.cur.fetchall()
 
     def search_students_name_adm(self, query):
+        if not query:
+            return []
+
         if query[0] == "#":
             self.execute(
                 f"select ADDM_NO, NAME, CLASS, DIVISION from STUDENTS where ADDM_NO={query[1:]}"
             )
-            return self.cur.fetchall()
         else:
             self.execute(
                 f"select ADDM_NO, NAME, CLASS, DIVISION from STUDENTS where NAME LIKE '%{query}%'"
             )
-            dataset = list(self.cur.fetchall())
-            return set(dataset)
+
+        return self.cur.fetchall()
 
     def search_students_gradediv(self, grade=None, div=None):
-        dataset = []
+        self.execute(
+            f"""select ADDM_NO, NAME, CLASS, DIVISION from STUDENTS 
+            where CLASS LIKE {grade or '%'} OR DIVISION LIKE {div or '_'}
+            """
+        )
 
-        if grade:
-            self.execute(
-                f"select ADDM_NO, NAME, CLASS, DIVISION from STUDENTS where CLASS={grade}"
-            )
-            dataset.extend(self.cur.fetchall())
+        return self.cur.fetchall()
 
-        if div:
-            self.execute(
-                f"select ADDM_NO, NAME, CLASS, DIVISION from STUDENTS where DIVISION='{div}'"
-            )
-            dataset.extend(self.cur.fetchall())
+    def search_t_full(self):
+        self.execute(
+            "select ID, DATE_BORROWED, DATE_RETURNED, ADDM_NO, BOOK_ID FROM TRANSACTIONS"
+        )
+        return self.cur.fetchall()
 
-        return set(dataset)
+    def search_t_date_borrowed(self, year=None, month=None, date=None):
+        year = year or "____"
+        month = month or "__"
+        date = date or "__"
 
-    def overdue(self):
+        self.execute(
+            f"""
+            select ID, DATE_BORROWED, DATE_RETURNED, ADDM_NO, BOOK_ID FROM TRANSACTIONS
+            WHERE DATE_BORROWED LIKE '{year}-{month}-{date}'
+            """
+        )
+
+        return self.cur.fetchall()
+
+    def search_t_date_returned(self, year=None, month=None, date=None):
+        year = year or "____"
+        month = month or "__"
+        date = date or "__"
+
+        self.execute(
+            f"""
+            select ID, DATE_BORROWED, DATE_RETURNED, ADDM_NO, BOOK_ID FROM TRANSACTIONS
+            WHERE DATE_RETURNED LIKE '{year}-{month}-{date}'
+            """
+        )
+
+        return self.cur.fetchall()
+
+    def search_t_book(self, book_id):
+        self.execute(
+           f"""
+           select * from transactions where book_id={book_id}
+           """
+        )
+
+        return self.cur.fetchall()
+
+    def search_t_student(self, adm_no):
+        self.execute(
+            f"""
+            select * from transactions where addm_no={adm_no}
+            """
+        )
+
+        return self.cur.fetchall()
+
+    def overdue_n(self):
+        ret = self.overdue_data()
+        return len(ret) if ret else 0
+
+    def overdue_data(self):
         self.execute("SELECT * FROM TRANSACTIONS WHERE DATE_RETURNED IS NULL")
-        return len(ret) if ((ret := self.cur.fetchall())) else 0
+        ret = self.cur.fetchall()
+        ret = filter(
+            lambda x: (datetime.now().date() - x[1]).days >= self.config.max_days,
+            ret,
+        )
 
-    def borrow(self, book_id, adm_no):
-        date = datetime.date()
-        self.execute(f"""
-        insert into TRANSACTIONS(DATE_BORROWED, ADDM_NO, BOOK_ID) 
-        values ('{date!s}', {adm_no}, {book_id})
-        """)
-        
-        
+        return list(ret)
+
 
 if __name__ == "__main__":
     from mysql.connector import connect

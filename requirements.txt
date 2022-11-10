@@ -1,2 +1,2 @@
 rich
-mysql-connector-python
+mysql-connector-python==8.0.29
