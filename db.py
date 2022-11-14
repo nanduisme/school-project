@@ -9,13 +9,6 @@ class DatabaseManager:
 
         self.config = get_config()
 
-        self.books = {
-            "new": self.book_new,
-            "remove": self.book_remove,
-            "update": self.book_update,
-            "all": self.book_all,
-        }
-
         self.execute("CREATE DATABASE IF NOT EXISTS LIBDB")
         self.execute("USE LIBDB")
         self.execute(
