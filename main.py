@@ -22,6 +22,7 @@ except ImportError:
         "and re-run the file.",
         sep="\n",
     )
+    input("Hit enter to quit...")
     quit()
 
 PROMPT = "yellow"
