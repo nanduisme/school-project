@@ -153,7 +153,7 @@ class App:
                 "Return book",
                 f"Overdue ({self.db.overdue_n()})",
                 "Edit settings",
-                "Info",
+                "Info and help",
             ]
 
             choice = self.menu(OPTIONS)
