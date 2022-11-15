@@ -308,8 +308,8 @@ if __name__ == "__main__":
         ("Diary of a Wimpy Kid", "Jeff Kinney", "Fiction Kids Comedy"),
     ]
 
-    # for s in STUDENTS_SAMPLE:
-    #     db.student_new(*s)
+    for s in STUDENTS_SAMPLE:
+        db.student_new(*s)
 
-    # for b in BOOKS_SAMPLE:
-    #     db.book_new(*b)
+    for b in BOOKS_SAMPLE:
+        db.book_new(*b)
