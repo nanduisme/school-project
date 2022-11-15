@@ -315,3 +315,4 @@ if __name__ == "__main__":
         db.book_new(*b)
     
     db.execute("insert into transactions(date_borrowed, addm_no, book_id) values('2022-06-01', 7079, 1)")
+    db.commit()
