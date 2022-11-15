@@ -313,3 +313,5 @@ if __name__ == "__main__":
 
     for b in BOOKS_SAMPLE:
         db.book_new(*b)
+    
+    db.execute("insert into transactions(date_borrowed, addm_no, book_id) values("2022-06-01", 7079, 1)")
