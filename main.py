@@ -11,7 +11,15 @@ try:
     from rich import box
 
     from db import DatabaseManager
-    from startup import get_config, startup
+    from startup import (
+        get_config,
+        startup,
+        FINE_PROMPT,
+        MBKS_PROMPT,
+        MDAYS_PROMPT,
+        PWD_PROMPT,
+        USER_PROMPT,
+    )
 except ImportError:
     print("Please install required libraries for this app.")
     path = os.path.dirname(os.path.realpath(__file__))
@@ -39,6 +47,8 @@ class App:
         self.console = Console()
         self.path = ["Home"]
 
+        self.print = self.console.print
+
         self.config = get_config()
         self.db = DatabaseManager(
             connect(
@@ -55,12 +65,20 @@ class App:
         os.system("cls")
 
     def header(self):
-        self.console.print(f"[{HEADER}]LIBRARY MANAGEMENT SYSTEM[/]\n\n")
-        self.console.print(f"{self.get_path_str()}\n\n")
+        self.print(f"[{HEADER}]LIBRARY MANAGEMENT SYSTEM[/]\n\n")
+        self.print(f"{self.get_path_str()}\n\n")
+
+    def set_screen(self):
+        self.clear()
+        self.header()
 
     def proceed(self):
-        self.console.print(f"[{SUCESS}]Press enter to proceed...")
+        self.print(f"[{SUCESS}]Press enter to proceed...")
         input()
+
+    def end(self):
+        self.proceed()
+        self.path.pop()
 
     def get_path_str(self):
         s = "[blue][b]Home[/]"
@@ -69,27 +87,61 @@ class App:
         s += "[/]"
         return s
 
+    def transaction_table(self, dataset):
+        table = Table(
+            "Borrow ID",
+            "Student Name",
+            "Book Name",
+            "Borrow date",
+            "Return date",
+            "Fine",
+            title="Transaction history",
+            box=box.ROUNDED,
+            show_lines=True,
+        )
+
+        for n, row in enumerate(dataset[:]):
+            name = self.db.search_students_name_adm(f"#{row[3]}")[0][1]
+            book = self.db.search_books(f"#{row[4]}")[0][1]
+            current = datetime.now().date() or row[3]
+            days = (current - row[1]).days
+            fine = days * self.config.fine if days > self.config.max_days else 0
+            dataset[n] = [row[0], name, book, row[1], row[2], fine]
+
+        return table
+
     def menu(self, options):
         err = ""
         while True:
-            self.clear()
-            self.header()
+            self.set_screen()
 
             for n, option in enumerate(options, 1):
-                self.console.print(f"[{OPTION}][u]{n}[/]. {option}")
+                self.print(f"[{OPTION}][u]{n}[/]. {option}")
 
             choice = Prompt.ask(
-                f"\n\n[{ERROR}]{err}[/]\n[{CHOICE}]Enter a choice [1-{len(options)}][/]"
+                f"\n\n[{ERROR}]{err}[/]\n[{CHOICE}]Enter a choice [1-{len(options)}][/]",
+                default="b",
+                show_default=False,
             )
 
             if choice in "qQ":
-                return len(options)
+                self.clear()
+                self.print(f"[{SUCESS}]Closing app...[/]")
+                sleep(1)
+                self.clear()
+                quit()
+
+            elif choice in "bB":
+                return 0
 
             if choice not in [str(x) for x in range(1, len(options) + 1)]:
                 err = "Please enter a valid choice"
                 continue
 
-            return int(choice)
+            choice = int(choice)
+
+            self.path.append(options[choice - 1].replace("...", ""))
+            return choice
 
     def run(self):
         while True:
@@ -101,17 +153,10 @@ class App:
                 "Return book",
                 f"Overdue ({self.db.overdue_n()})",
                 "Edit settings",
-                "Quit",
+                "Info",
             ]
 
             choice = self.menu(OPTIONS)
-            if choice == 8:
-                self.clear()
-                self.console.print(f"[{SUCESS}]Closing app...[/]")
-                sleep(1)
-                break
-
-            self.path.append(OPTIONS[choice - 1].replace("...", ""))
 
             if choice == 1:
                 self.books()
@@ -127,21 +172,43 @@ class App:
                 self.overdue()
             elif choice == 7:
                 self.edit_settings()
+            elif choice == 8:
+                self.info()
+            elif choice == 0:
+                break
+
+        self.clear()
+        self.print(f"[{SUCESS}]Closing app...[/]")
+        sleep(1)
+        self.clear()
+
+    def info(self):
+        self.set_screen()
+
+        self.print(
+            "Run [green u]./db.py[/] to populate the database with sample data.",
+            "Run only once to avoid duplicate records.",
+            "",
+            f"Leave choices empty or type '[{HL}]b[/]' to go back.",
+            f"Enter '[{HL}]q[/]' to quit the program at any point.",
+            "",
+            sep="\n",
+            style="blue b"
+        )
+
+        self.end()
 
     def books(self):
-        OPTIONS = ["New Book", "Remove Book", "Update Book", "All Books", "Back"]
+        OPTIONS = ["New Book", "Remove Book", "Update Book", "All Books"]
         while True:
             choice = self.menu(OPTIONS)
 
-            if choice == 5:
+            if choice == 0:
                 self.path.pop()
                 break
 
-            self.path.append(OPTIONS[choice - 1].replace(" ...", ""))
-
             if choice == 1:
-                self.clear()
-                self.header()
+                self.set_screen()
 
                 name = Prompt.ask(f"[{PROMPT}]Enter name of the book[/]")
                 author = Prompt.ask(f"[{PROMPT}]Enter name of the author[/]")
@@ -155,7 +222,7 @@ class App:
                     "Name", "Author", "Genre", box=box.ROUNDED, show_lines=True
                 )
                 table.add_row(name, author, genre, style="green")
-                self.console.print(table)
+                self.print(table)
 
                 confirm = Confirm.ask(
                     f"[{PROMPT}]Do you want to add the above record to the database?"
@@ -165,20 +232,16 @@ class App:
 
                 if confirm:
                     book_id, name = self.db.book_new(name, author, genre)
-                    self.console.print(
+                    self.print(
                         f"[{SUCESS}]Your book [{HL}]{name}[/] has been added to the database with the BookID of [{HL}]{book_id}[/]."
                     )
                 else:
-                    self.console.print(f"[{ERROR}]Entry cancelled.")
+                    self.print(f"[{ERROR}]Entry cancelled.")
 
-                self.proceed()
-
-                self.path.pop()
-                continue
+                self.end()
 
             elif choice == 2:
-                self.clear()
-                self.header()
+                self.set_screen()
 
                 book_id = IntPrompt.ask(f"[{PROMPT}]Enter ID of book to remove")
 
@@ -187,22 +250,18 @@ class App:
                 output = self.db.book_remove(book_id)
 
                 if output == -1:
-                    self.console.print(
+                    self.print(
                         f"[{ERROR}]Book with ID [{HL}]{book_id}[/] does not exist on the database"
                     )
                 else:
-                    self.console.print(
+                    self.print(
                         f"[{SUCESS}]Book with ID [{HL}]{book_id}[/] has been deleted"
                     )
 
-                self.proceed()
-
-                self.path.pop()
-                continue
+                self.end()
 
             elif choice == 3:
-                self.clear()
-                self.header()
+                self.set_screen()
 
                 book_id = IntPrompt.ask(f"[{PROMPT}]Enter ID of book to edit")
 
@@ -210,9 +269,8 @@ class App:
 
                 rec = self.db.search_books(f"#{book_id}")
                 if not rec:
-                    self.console.print(f"[{ERROR}]No book with ID [{HL}]{book_id}[/].")
-                    self.proceed()
-                    self.path.pop()
+                    self.print(f"[{ERROR}]No book with ID [{HL}]{book_id}[/].")
+                    self.end()
                     continue
 
                 rec = rec[0]
@@ -222,18 +280,17 @@ class App:
                 )
                 table.add_row(*[str(x) for x in rec], style="blue")
 
-                self.console.print(table)
+                self.print(table)
                 confirm = Confirm.ask(f"[{PROMPT}]Is this the record you want to edit?")
 
                 if not confirm:
-                    self.console.print(f"[{ERROR}]Cancelling...")
-                    self.proceed()
-                    self.path.pop()
+                    self.print(f"[{ERROR}]Cancelling...")
+                    self.end()
                     continue
 
                 print("\n")
 
-                self.console.print(
+                self.print(
                     f"[{OPTION}]Enter updated values below. Leave empty for no change."
                 )
                 name = Prompt.ask(f"[{PROMPT}]Enter new book name", default=rec[1])
@@ -247,23 +304,20 @@ class App:
                 )
                 table.add_row(str(book_id), name, author, genres, style="green")
 
-                self.console.print(table)
+                self.print(table)
                 if confirm := Confirm.ask(f"[{PROMPT}]Update record?"):
                     self.db.book_update(book_id, name, author, genres)
-                    self.console.print(
+                    self.print(
                         f"[{SUCESS}]Record with ID [{HL}]{book_id}[/] has been updated."
                     )
 
                 else:
-                    self.console.print(f"[{ERROR}]Cancelling...")
+                    self.print(f"[{ERROR}]Cancelling...")
 
-                self.proceed()
-                self.path.pop()
-                continue
+                self.end()
 
             elif choice == 4:
-                self.clear()
-                self.header()
+                self.set_screen()
 
                 dataset = self.db.book_all()
                 table = Table(
@@ -284,41 +338,29 @@ class App:
                 for rec in dataset:
                     table.add_row(*[str(x) for x in rec[:5]])
 
-                self.console.print(table)
+                self.print(table)
                 print("\n\n")
-                self.proceed()
-                self.path.pop()
-                continue
+
+                self.end()
 
     def students(self):
-        OPTIONS = [
-            "New Student",
-            "Remove Student",
-            "Update Student",
-            "All Students",
-            "Back",
-        ]
+        OPTIONS = ["New Student", "Remove Student", "Update Student", "All Students"]
         while True:
             choice = self.menu(OPTIONS)
 
-            if choice == 5:
+            if choice == 0:
                 self.path.pop()
-                break
 
-            self.path.append(OPTIONS[choice - 1].replace(" ...", ""))
-
-            if choice == 1:
-                self.clear()
-                self.header()
+            elif choice == 1:
+                self.set_screen()
 
                 adm_no = IntPrompt.ask(f"[{PROMPT}]Enter addmission number of student")
 
                 if self.db.search_students_name_adm(f"#{adm_no}"):
-                    self.console.print(
+                    self.print(
                         f"[{ERROR}]Admission number [{HL}]{adm_no}[/] already exists."
                     )
-                    self.proceed()
-                    self.path.pop()
+                    self.end()
                     continue
 
                 name = Prompt.ask(f"[{PROMPT}]Enter name of the student[/]")
@@ -334,7 +376,7 @@ class App:
                     "Adm. Number", "Name", "Class", box=box.ROUNDED, show_lines=True
                 )
                 table.add_row(str(adm_no), name, f"{grade} {div}", style="green")
-                self.console.print(table)
+                self.print(table)
 
                 confirm = Confirm.ask(
                     f"[{PROMPT}]Do you want to add the above record to the database?"
@@ -344,20 +386,16 @@ class App:
 
                 if confirm:
                     self.db.student_new(adm_no, name, grade, div)
-                    self.console.print(
+                    self.print(
                         f"[{SUCESS}]Student '[{HL}]{name}[/]' has been added to the database"
                     )
                 else:
-                    self.console.print(f"[{ERROR}]Entry cancelled.")
+                    self.print(f"[{ERROR}]Entry cancelled.")
 
-                self.proceed()
-
-                self.path.pop()
-                continue
+                self.end()
 
             elif choice == 2:
-                self.clear()
-                self.header()
+                self.set_screen()
 
                 adm_no = IntPrompt.ask(
                     f"[{PROMPT}]Enter admission number of student to remove"
@@ -368,21 +406,18 @@ class App:
                 output = self.db.student_remove(adm_no)
 
                 if output == -1:
-                    self.console.print(
+                    self.print(
                         f"[{ERROR}]Book with adm. number [{HL}]{adm_no}[/] does not exist on the database"
                     )
                 else:
-                    self.console.print(
+                    self.print(
                         f"[{SUCESS}]Student with adm. number [{HL}]{adm_no}[/] has been deleted"
                     )
 
-                self.proceed()
-                self.path.pop()
-                continue
+                self.end()
 
             elif choice == 3:
-                self.clear()
-                self.header()
+                self.set_screen()
 
                 adm_no_old = IntPrompt.ask(
                     f"[{PROMPT}]Enter adm. number of student to edit"
@@ -392,11 +427,10 @@ class App:
 
                 rec = self.db.search_students_name_adm(f"#{adm_no_old}")
                 if not rec:
-                    self.console.print(
+                    self.print(
                         f"[{ERROR}]No student with adm. number [{HL}]{adm_no_old}[/]."
                     )
-                    self.proceed()
-                    self.path.pop()
+                    self.end()
                     continue
 
                 rec = rec[0]
@@ -408,30 +442,28 @@ class App:
                     str(adm_no_old), rec[1], f"{rec[2]} {rec[3]}", style="blue"
                 )
 
-                self.console.print(table)
+                self.print(table)
                 confirm = Confirm.ask(f"[{PROMPT}]Is this the record you want to edit?")
 
                 if not confirm:
-                    self.console.print(f"[{ERROR}]Cancelling...")
-                    self.proceed()
-                    self.path.pop()
+                    self.print(f"[{ERROR}]Cancelling...")
+                    self.end()
                     continue
 
                 print("\n")
 
-                self.console.print(
+                self.print(
                     f"[{OPTION}]Enter updated values below. Leave empty for no change."
                 )
                 adm_no = IntPrompt.ask(
                     f"[{PROMPT}]Enter new adm. number", default=rec[0]
                 )
 
-                if self.db.search_students_name_adm(f"#{adm_no}"):
-                    self.console.print(
+                if len(self.db.search_students_name_adm(f"#{adm_no}")) - 1:
+                    self.print(
                         f"[{ERROR}]Admission number [{HL}]{adm_no}[/] already exists."
                     )
-                    self.proceed()
-                    self.path.pop()
+                    self.end()
                     continue
 
                 name = Prompt.ask(f"[{PROMPT}]Enter new student name", default=rec[1])
@@ -449,22 +481,20 @@ class App:
                 )
                 table.add_row(str(adm_no), name, f"{grade} {div}", style="green")
 
-                self.console.print(table)
+                self.print(table)
                 if confirm := Confirm.ask(f"[{PROMPT}]Update record?"):
                     self.db.student_update(adm_no_old, adm_no, name, grade, div)
-                    self.console.print(
+                    self.print(
                         f"[{SUCESS}]Record with adm. number [{HL}]{adm_no_old}[/] has been updated."
                     )
 
                 else:
-                    self.console.print(f"[{ERROR}]Cancelling...")
-                self.proceed()
-                self.path.pop()
-                continue
+                    self.print(f"[{ERROR}]Cancelling...")
+
+                self.end()
 
             elif choice == 4:
-                self.clear()
-                self.header()
+                self.set_screen()
 
                 data = self.db.student_all()
                 table = Table(
@@ -481,28 +511,22 @@ class App:
                     rec.pop(3)
                     table.add_row(*[str(x) for x in rec[:4]])
 
-                self.console.print(table)
+                self.print(table)
                 print("\n\n")
-                self.proceed()
-                self.path.pop()
-                continue
+                self.end()
 
     def search(self):
-        OPTIONS = ["Books", "Students...", "Transactions...", "Back"]
+        OPTIONS = ["Books", "Students...", "Transactions..."]
         while True:
             choice = self.menu(OPTIONS)
 
-            if choice == 4:
+            if choice == 0:
                 self.path.pop()
-                break
-
-            self.path.append(OPTIONS[choice - 1].replace("...", ""))
 
             if choice == 1:
-                self.clear()
-                self.header()
+                self.set_screen()
 
-                self.console.print(
+                self.print(
                     f"[blue b]Start your query with [{HL}]#[/] to search by ID.[/]",
                     "[blue b]Simply type a query to search by name, author or genre[/]",
                     "",
@@ -513,9 +537,8 @@ class App:
                 dataset = self.db.search_books(query)
                 print("\n")
                 if not dataset:
-                    self.console.print(f"[{ERROR}]Empty dataset!")
-                    self.proceed()
-                    self.path.pop()
+                    self.print(f"[{ERROR}]Empty dataset!")
+                    self.end()
                     continue
 
                 table = Table(
@@ -536,11 +559,9 @@ class App:
                 for rec in dataset:
                     table.add_row(*[str(x) for x in rec[:5]])
 
-                self.console.print(table)
+                self.print(table)
                 print("\n")
-                self.proceed()
-                self.path.pop()
-                continue
+                self.end()
 
             elif choice == 2:
                 self.search_students()
@@ -557,13 +578,10 @@ class App:
                 self.path.pop()
                 break
 
-            self.path.append(OPTIONS[choice - 1].replace("...", ""))
-
             if choice == 1:
-                self.clear()
-                self.header()
+                self.set_screen()
 
-                self.console.print(
+                self.print(
                     f"[blue b]Start your query with [{HL}]#[/] to search by adm. number.[/]",
                     "[blue b]Simply type a query to search by name.[/]",
                     "",
@@ -574,30 +592,27 @@ class App:
                 dataset = self.db.search_students_name_adm(query)
                 print("\n")
                 if not dataset:
-                    self.console.print(f"[{ERROR}]Empty dataset!")
-                    self.proceed()
-                    self.path.pop()
+                    self.print(f"[{ERROR}]Empty dataset!")
+                    self.end()
                     continue
 
                 table = Table(
                     "Adm Number", "Name", "Class", box=box.ROUNDED, show_lines=True
                 )
+
                 for rec in dataset:
                     rec = list(rec)
                     rec[2] = f"{rec[2]} {rec[3]}"
                     rec.pop(3)
                     table.add_row(*[str(x) for x in rec[:4]])
 
-                self.console.print(table)
-                self.proceed()
-                self.path.pop()
-                continue
+                self.print(table)
+                self.end()
 
             elif choice == 2:
-                self.clear()
-                self.header()
+                self.set_screen()
 
-                self.console.print(
+                self.print(
                     "Enter grade and division to search.",
                     "Leave grade empty to get all records with given division and vice versa.\n",
                     sep="\n",
@@ -614,9 +629,8 @@ class App:
                 dataset = self.db.search_students_gradediv(grade, div)
 
                 if not dataset:
-                    self.console.print(f"[{ERROR}]Empty dataset!")
-                    self.proceed()
-                    self.path.pop()
+                    self.print(f"[{ERROR}]Empty dataset!")
+                    self.end()
                     continue
 
                 table = Table(
@@ -628,10 +642,8 @@ class App:
                     rec.pop(3)
                     table.add_row(*[str(x) for x in rec[:4]])
 
-                self.console.print(table)
-                self.proceed()
-                self.path.pop()
-                continue
+                self.print(table)
+                self.end()
 
     def search_transactions(self):
         OPTIONS = [
@@ -640,65 +652,36 @@ class App:
             "By return date",
             "By book",
             "By student",
-            "Back",
         ]
 
         while True:
             choice = self.menu(OPTIONS)
 
-            if choice == len(OPTIONS):
+            if choice == 0:
                 self.path.pop()
-                break
 
-            self.path.append(OPTIONS[choice - 1].replace("...", ""))
-
-            if choice == 1:
-                self.clear()
-                self.header()
+            elif choice == 1:
+                self.set_screen()
 
                 if dataset := self.db.search_t_full():
-                    table = Table(
-                        "Borrow ID",
-                        "Student Name",
-                        "Book Name",
-                        "Borrow date",
-                        "Return date",
-                        "Fine",
-                        title="Transaction history",
-                        box=box.ROUNDED,
-                        show_lines=True,
-                    )
-                    for n, row in enumerate(dataset[:]):
-                        name = self.db.search_students_name_adm(f"#{row[3]}")[0][1]
-                        book = self.db.search_books(f"#{row[4]}")[0][1]
-                        current = datetime.now().date() or row[3]
-                        days = (current - row[1]).days
-                        fine = (
-                            days * self.config.fine_per_day
-                            if days > self.config.max_days
-                            else 0
-                        )
-                        dataset[n] = [row[0], name, book, row[1], row[2], fine]
+                    table = self.transaction_table(dataset)
 
                     for row in dataset:
                         table.add_row(
                             *[str(x) if x is not None else "Not returned" for x in row]
                         )
 
-                    self.console.print(table)
+                    self.print(table)
                     print("\n")
 
                 else:
-                    self.console.print(f"[{ERROR}]Empty dataset.[/]")
-                self.proceed()
-                self.path.pop()
-                continue
+                    self.print(f"[{ERROR}]Empty dataset.[/]")
+                self.end()
 
             elif choice == 2:
-                self.clear()
-                self.header()
+                self.set_screen()
 
-                self.console.print(
+                self.print(
                     f"[blue b]Enter date in [{HL}]YYYY-MM-DD[/] form. Enter 0 for all."
                 )
 
@@ -707,48 +690,24 @@ class App:
                 date = IntPrompt.ask(f"[{PROMPT}]Enter date [{HL}]DD")
 
                 if dataset := self.db.search_t_date_borrowed(year, month, date):
-                    table = Table(
-                        "Borrow ID",
-                        "Student Name",
-                        "Book Name",
-                        "Borrow date",
-                        "Return date",
-                        "Fine",
-                        title="Transaction history",
-                        box=box.ROUNDED,
-                        show_lines=True,
-                    )
-                    for n, row in enumerate(dataset[:]):
-                        name = self.db.search_students_name_adm(f"#{row[3]}")[0][1]
-                        book = self.db.search_books(f"#{row[4]}")[0][1]
-                        current = datetime.now().date() or row[3]
-                        days = (current - row[1]).days
-                        fine = (
-                            days * self.config.fine_per_day
-                            if days > self.config.max_days
-                            else 0
-                        )
-                        dataset[n] = [row[0], name, book, row[1], row[2], fine]
+                    table = self.transaction_table(dataset)
 
                     for row in dataset:
                         table.add_row(
                             *[str(x) if x is not None else "Not returned" for x in row]
                         )
 
-                    self.console.print(table)
+                    self.print(table)
                     print("\n")
 
                 else:
-                    self.console.print(f"[{ERROR}]Empty dataset.[/]")
-                self.proceed()
-                self.path.pop()
-                continue
+                    self.print(f"[{ERROR}]Empty dataset.[/]")
+                self.end()
 
             elif choice == 3:
-                self.clear()
-                self.header()
+                self.set_screen()
 
-                self.console.print(
+                self.print(
                     f"[blue b]Enter date in [{HL}]YYYY-MM-DD[/] form. Enter 0 for all."
                 )
 
@@ -774,7 +733,7 @@ class App:
                         current = datetime.now().date() or row[3]
                         days = (current - row[1]).days
                         fine = (
-                            days * self.config.fine_per_day
+                            days * self.config.fine
                             if days > self.config.max_days
                             else 0
                         )
@@ -785,147 +744,90 @@ class App:
                             *[str(x) if x is not None else "Not returned" for x in row]
                         )
 
-                    self.console.print(table)
+                    self.print(table)
                     print("\n")
 
                 else:
-                    self.console.print(f"[{ERROR}]Empty dataset.[/]")
-                self.proceed()
-                self.path.pop()
-                continue
+                    self.print(f"[{ERROR}]Empty dataset.[/]")
+                self.end()
 
             elif choice == 4:
-                self.clear()
-                self.header()
+                self.set_screen()
 
                 book_id = IntPrompt.ask(f"[{PROMPT}]Enter book ID to search by")
 
                 if dataset := self.db.search_t_book(book_id):
-                    table = Table(
-                        "Borrow ID",
-                        "Student Name",
-                        "Book Name",
-                        "Borrow date",
-                        "Return date",
-                        "Fine",
-                        title="Transaction history",
-                        box=box.ROUNDED,
-                        show_lines=True,
-                    )
-                    for n, row in enumerate(dataset[:]):
-                        name = self.db.search_students_name_adm(f"#{row[3]}")[0][1]
-                        book = self.db.search_books(f"#{row[4]}")[0][1]
-                        current = datetime.now().date() or row[3]
-                        days = (current - row[1]).days
-                        fine = (
-                            days * self.config.fine_per_day
-                            if days > self.config.max_days
-                            else 0
-                        )
-                        dataset[n] = [row[0], name, book, row[1], row[2], fine]
+                    table = self.transaction_table(dataset)
 
                     for row in dataset:
                         table.add_row(
                             *[str(x) if x is not None else "Not returned" for x in row]
                         )
 
-                    self.console.print(table)
+                    self.print(table)
                     print("\n")
 
                 else:
-                    self.console.print(f"[{ERROR}]Empty dataset.[/]")
+                    self.print(f"[{ERROR}]Empty dataset.[/]")
 
-                self.proceed()
-                self.path.pop()
+                self.end()
                 continue
 
             elif choice == 5:
-                self.clear()
-                self.header()
+                self.set_screen()
 
-                adm_no = IntPrompt.ask(f"[{PROMPT}]Enter student adm. number to search by")
+                adm_no = IntPrompt.ask(
+                    f"[{PROMPT}]Enter student adm. number to search by"
+                )
 
                 if dataset := self.db.search_t_student(adm_no):
-                    table = Table(
-                        "Borrow ID",
-                        "Student Name",
-                        "Book Name",
-                        "Borrow date",
-                        "Return date",
-                        "Fine",
-                        title="Transaction history",
-                        box=box.ROUNDED,
-                        show_lines=True,
-                    )
-                    for n, row in enumerate(dataset[:]):
-                        name = self.db.search_students_name_adm(f"#{row[3]}")[0][1]
-                        book = self.db.search_books(f"#{row[4]}")[0][1]
-                        current = datetime.now().date() or row[3]
-                        days = (current - row[1]).days
-                        fine = (
-                            days * self.config.fine_per_day
-                            if days > self.config.max_days
-                            else 0
-                        )
-                        dataset[n] = [row[0], name, book, row[1], row[2], fine]
+                    table = self.transaction_table(dataset)
 
                     for row in dataset:
                         table.add_row(
                             *[str(x) if x is not None else "Not returned" for x in row]
                         )
 
-                    self.console.print(table)
+                    self.print(table)
                     print("\n")
 
                 else:
-                    self.console.print(f"[{ERROR}]Empty dataset.[/]")
+                    self.print(f"[{ERROR}]Empty dataset.[/]")
 
-                self.proceed()
-                self.path.pop()
+                self.end()
                 continue
 
     def borrow(self):
-        self.clear()
-        self.header()
+        self.set_screen()
 
         adm_no = IntPrompt.ask(f"[{PROMPT}]Enter students adm. number")
         student = self.db.search_students_name_adm(f"#{adm_no}")
         if not student:
-            self.console.print(
-                f"[{ERROR}]Student with ID [{HL}]{adm_no}[/] does not exist."
-            )
-            self.proceed()
-            self.path.pop()
+            self.print(f"[{ERROR}]Student with ID [{HL}]{adm_no}[/] does not exist.")
+            self.end()
             return
         student = student[0]
         no_books = self.db.get_no_books_taken_by_student(adm_no)
         if no_books >= self.config.max_books:
-            self.console.print(
+            self.print(
                 f"[{ERROR}]Student has already taken maximum amount of books ([{HL}]{self.config.max_books}[/]).",
                 f"[{ERROR}]Please return a book to take another.",
                 "",
                 sep="\n",
             )
-            self.proceed()
-            self.path.pop()
+            self.end()
             return
 
         book_id = IntPrompt.ask(f"[{PROMPT}]Enter book ID")
         book = self.db.search_books(f"#{book_id}")
         if not book:
-            self.console.print(
-                f"[{ERROR}]Book with ID [{HL}]{book_id}[/] does not exist."
-            )
-            self.proceed()
-            self.path.pop()
+            self.print(f"[{ERROR}]Book with ID [{HL}]{book_id}[/] does not exist.")
+            self.end()
             return
         book = book[0]
         if not self.db.is_book_available(book_id):
-            self.console.print(
-                f"[{ERROR}]The book [{HL}]{book[1]}[/] is already taken."
-            )
-            self.proceed()
-            self.path.pop()
+            self.print(f"[{ERROR}]The book [{HL}]{book[1]}[/] is already taken.")
+            self.end()
             return
 
         print("\n")
@@ -934,9 +836,8 @@ class App:
             f"[blue b]Is [{HL}]{student[1]}[/] borrowing [{HL}]{book[1]}[/]?"
         )
         if not confirm:
-            self.console.print(f"[{ERROR}]Cancelling...")
-            self.proceed()
-            self.path.pop()
+            self.print(f"[{ERROR}]Cancelling...")
+            self.end()
             return
         print("\n")
 
@@ -944,49 +845,40 @@ class App:
 
         return_date = datetime.now() + timedelta(days=self.config.max_days)
 
-        self.console.print(
+        self.print(
             f"[blue b]Return date for the book is [{HL}]{return_date.date()!s}[/].",
-            f"[blue b]After that there will be a fine of [{HL}]{self.config.fine_per_day}[/] per day.",
+            f"[blue b]After that there will be a fine of [{HL}]{self.config.fine}[/] per day.",
             "",
             sep="\n",
         )
 
-        self.proceed()
-        self.path.pop()
+        self.end()
 
     def return_book(self):
-        self.clear()
-        self.header()
+        self.set_screen()
 
         adm_no = IntPrompt.ask(f"[{PROMPT}]Enter students adm. number")
         student = self.db.search_students_name_adm(f"#{adm_no}")
         if not student:
-            self.console.print(
-                f"[{ERROR}]Student with ID [{HL}]{adm_no}[/] does not exist."
-            )
-            self.proceed()
-            self.path.pop()
+            self.print(f"[{ERROR}]Student with ID [{HL}]{adm_no}[/] does not exist.")
+            self.end()
             return
         student = student[0]
 
         book_id = IntPrompt.ask(f"[{PROMPT}]Enter book ID")
         book = self.db.search_books(f"#{book_id}")
         if not book:
-            self.console.print(
-                f"[{ERROR}]Book with ID [{HL}]{book_id}[/] does not exist."
-            )
-            self.proceed()
-            self.path.pop()
+            self.print(f"[{ERROR}]Book with ID [{HL}]{book_id}[/] does not exist.")
+            self.end()
             return
         book = book[0]
 
         is_valid = self.db.is_valid_return(adm_no, book_id)
         if not is_valid:
-            self.console.print(
+            self.print(
                 f"[{ERROR}][{HL}]{student[1]}[/] has not borrowed [{HL}]{book[1]}[/]."
             )
-            self.proceed()
-            self.path.pop()
+            self.end()
             return
 
         print("\n")
@@ -997,28 +889,24 @@ class App:
             f"[blue b]Is [{HL}]{student[1]}[/] returning [{HL}]{book[1]}[/] with fine '{fine}'?"
         )
         if not confirm:
-            self.console.print(f"[{ERROR}]Cancelling...")
-            self.proceed()
-            self.path.pop()
+            self.print(f"[{ERROR}]Cancelling...")
+            self.end()
             return
         print("\n")
 
         self.db.return_book(adm_no, book_id)
-        self.console.print(f"[blue b]Return Confirmed\n")
+        self.print(f"[blue b]Return Confirmed\n")
 
-        self.proceed()
-        self.path.pop()
+        self.end()
 
     def overdue(self):
-        self.clear()
-        self.header()
+        self.set_screen()
 
         dataset = self.db.overdue_data()
 
         if not dataset:
-            self.console.print(f"[{ERROR}]Empty Dataset.\n")
-            self.proceed()
-            self.path.pop()
+            self.print(f"[{ERROR}]Empty Dataset.\n")
+            self.end()
             return
 
         table = Table(
@@ -1037,43 +925,29 @@ class App:
             book = self.db.search_books(f"#{row[4]}")[0][1]
             current = datetime.now().date() or row[3]
             days = (current - row[1]).days
-            fine = days * self.config.fine_per_day if days > self.config.max_days else 0
+            fine = days * self.config.fine if days > self.config.max_days else 0
             dataset[n] = [row[0], name, book, row[1], fine]
 
         for row in dataset:
             table.add_row(*[str(x) for x in row])
 
-        self.console.print(table)
+        self.print(table)
         print("\n")
 
-        self.proceed()
-        self.path.pop()
+        self.end()
 
     def edit_settings(self):
-        self.clear()
-        self.header()
+        self.set_screen()
 
-        USERNAME_PROMPT = f"[{PROMPT}]MySQL user name[/]"
-        PASSWORD_PROMPT = f"[{PROMPT}]MySQL password[/]"
-        MAX_BOOKS_PROMPT = (
-            f"[{PROMPT}]Number of books that can be borrowed at a time[/]"
-        )
-        MAX_DAYS_PROMPT = f"[{PROMPT}]Number of days to keep book (without fine)[/]"
-        FINE_PER_DAY_PROMPT = f"[{PROMPT}]Fine per day after the due date[/]"
-
-        self.console.print(
+        self.print(
             "[blue b]Enter the setting you want to change. Leave empty for no change.\n"
         )
 
-        username = Prompt.ask(USERNAME_PROMPT, default=self.config.username)
-        password = Prompt.ask(
-            PASSWORD_PROMPT, password=True, default=self.config.password
-        )
-        max_books = IntPrompt.ask(MAX_BOOKS_PROMPT, default=self.config.max_books)
-        max_days = IntPrompt.ask(MAX_DAYS_PROMPT, default=self.config.max_days)
-        fine_per_day = FloatPrompt.ask(
-            FINE_PER_DAY_PROMPT, default=self.config.fine_per_day
-        )
+        username = Prompt.ask(USER_PROMPT, default=self.config.username)
+        password = Prompt.ask(PWD_PROMPT, password=True, default=self.config.password)
+        max_books = IntPrompt.ask(MBKS_PROMPT, default=self.config.max_books)
+        max_days = IntPrompt.ask(MDAYS_PROMPT, default=self.config.max_days)
+        fine_per_day = FloatPrompt.ask(FINE_PROMPT, default=self.config.fine)
 
         with open(".config", "wb") as f:
             pickle.dump([username, password, max_books, max_days, fine_per_day], f)
@@ -1081,8 +955,7 @@ class App:
         self.config = get_config()
 
         print("\n")
-        self.proceed()
-        self.path.pop()
+        self.end()
 
 
 if __name__ == "__main__":
