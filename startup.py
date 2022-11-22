@@ -75,7 +75,3 @@ class Config:
 def get_config():
     with open(".config", "rb") as f:
         return Config(*pickle.load(f))
-
-
-if __name__ == "__main__":
-    startup()
