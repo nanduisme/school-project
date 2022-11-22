@@ -53,7 +53,7 @@ class App:
         self.db = DatabaseManager(
             connect(
                 host="localhost",
-                user=self.config.username,
+                user=self.config.user,
                 password=self.config.password,
                 charset="utf8",
             )
@@ -154,6 +154,7 @@ class App:
                 f"Overdue ({self.db.overdue_n()})",
                 "Edit settings",
                 "Info and help",
+                "Factory reset",
             ]
 
             choice = self.menu(OPTIONS)
@@ -174,6 +175,8 @@ class App:
                 self.edit_settings()
             elif choice == 8:
                 self.info()
+            elif choice == 9:
+                self.reset()
             elif choice == 0:
                 break
 
@@ -193,8 +196,25 @@ class App:
             f"Enter '[{HL}]q[/]' to quit the program at any point.",
             "",
             sep="\n",
-            style="blue b"
+            style="blue b",
         )
+
+        self.end()
+
+    def reset(self):
+        self.set_screen()
+
+        choice = Confirm.ask(
+            "[red b]Are you sure you want to reset your app? (This will erase your settings and database permanantly)"
+        )
+
+        if choice:
+            self.db.drop_database()
+            os.remove("./.config")
+            self.print("\n\n[green b]Reset complete. Closing app...")
+            sleep(2)
+            self.clear()
+            quit()
 
         self.end()
 
@@ -522,8 +542,9 @@ class App:
 
             if choice == 0:
                 self.path.pop()
+                break
 
-            if choice == 1:
+            elif choice == 1:
                 self.set_screen()
 
                 self.print(
@@ -570,15 +591,15 @@ class App:
                 self.search_transactions()
 
     def search_students(self):
-        OPTIONS = ["By adm. number or name", "By class and/or division", "Back"]
+        OPTIONS = ["By adm. number or name", "By class and/or division"]
         while True:
             choice = self.menu(OPTIONS)
 
-            if choice == 3:
+            if choice == 0:
                 self.path.pop()
                 break
 
-            if choice == 1:
+            elif choice == 1:
                 self.set_screen()
 
                 self.print(
@@ -659,6 +680,7 @@ class App:
 
             if choice == 0:
                 self.path.pop()
+                break
 
             elif choice == 1:
                 self.set_screen()
@@ -943,7 +965,7 @@ class App:
             "[blue b]Enter the setting you want to change. Leave empty for no change.\n"
         )
 
-        username = Prompt.ask(USER_PROMPT, default=self.config.username)
+        username = Prompt.ask(USER_PROMPT, default=self.config.user)
         password = Prompt.ask(PWD_PROMPT, password=True, default=self.config.password)
         max_books = IntPrompt.ask(MBKS_PROMPT, default=self.config.max_books)
         max_days = IntPrompt.ask(MDAYS_PROMPT, default=self.config.max_days)

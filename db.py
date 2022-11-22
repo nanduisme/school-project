@@ -8,10 +8,7 @@ class DatabaseManager:
     def __init__(self, connection):
         self.con = connection
         self.cur = connection.cursor()
-
         self.fetchall = self.cur.fetchall
-        self.rowcount = self.cur.rowcount
-
         self.config = get_config()
 
         self.execute("CREATE DATABASE IF NOT EXISTS LIBDB")
@@ -43,6 +40,10 @@ class DatabaseManager:
             )"""
         )
 
+    @property
+    def rowcount(self):
+        return self.cur.rowcount
+
     def execute(self, query):
         self.cur.execute(query)
 
@@ -67,7 +68,7 @@ class DatabaseManager:
         self.execute("SELECT * FROM BOOKS")
         return self.fetchall()
 
-    def book_remove(self, id):  # sourcery skip: class-extract-method
+    def book_remove(self, id):  
         self.execute(f"DELETE FROM BOOKS WHERE ID = {id}")
         self.commit()
 
@@ -248,20 +249,12 @@ class DatabaseManager:
         return self.fetchall()
 
     def search_t_book(self, book_id):
-        self.execute(
-            f"""
-           SELECT * FROM TRANSACTIONS WHERE book_id={book_id}
-           """
-        )
+        self.execute(f"SELECT * FROM TRANSACTIONS WHERE book_id={book_id}")
 
         return self.fetchall()
 
     def search_t_student(self, adm_no):
-        self.execute(
-            f"""
-            SELECT * FROM TRANSACTIONS WHERE adm_no={adm_no}
-            """
-        )
+        self.execute(f"SELECT * FROM TRANSACTIONS WHERE adm_no={adm_no}")
 
         return self.fetchall()
 
@@ -279,12 +272,20 @@ class DatabaseManager:
 
         return list(ret)
 
+    def drop_database(self):
+        self.execute("DROP DATABASE LIBDB")
+        self.commit()
+
 
 if __name__ == "__main__":
     from mysql.connector import connect
 
+    config = get_config()
+
     db = DatabaseManager(
-        connect(host="localhost", user="root", passwd="root", charset="utf8")
+        connect(
+            host="localhost", user=config.user, password=config.password, charset="utf8"
+        )
     )
 
     with open("students.csv", "r") as f:
@@ -296,6 +297,7 @@ if __name__ == "__main__":
             db.book_new(*e)
 
     db.execute(
-        "INSERT INTO TRANSACTIONS(DATE_BORROWED, ADM_NO, BOOK_ID) VALUES('2022-06-01', 7079, 1)"
+        "INSERT INTO TRANSACTIONS(DATE_BORROWED, ADM_NO, BOOK_ID)\
+        VALUES('2022-06-01', 7079, 1)"
     )
     db.commit()

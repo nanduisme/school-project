@@ -65,7 +65,7 @@ def startup():
 
 class Config:
     def __init__(self, username, password, max_books, max_days, finer_per_day):
-        self.username = username
+        self.user = username
         self.password = password
         self.max_books = max_books
         self.max_days = max_days
