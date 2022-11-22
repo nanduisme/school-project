@@ -206,9 +206,12 @@ class DatabaseManager:
         return self.fetchall()
 
     def search_students_gradediv(self, grade=None, div=None):
+        if div == 'None':
+            div = None
+
         self.execute(
             f"""SELECT ADM_NO, NAME, CLASS, DIVISION FROM STUDENTS 
-            WHERE CLASS LIKE {grade or '%'} OR DIVISION LIKE {div or '_'}
+            WHERE CLASS {f'={grade}' or '> 0'} AND DIVISION LIKE '{div or '_'}'
             """
         )
 
