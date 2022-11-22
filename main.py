@@ -370,6 +370,7 @@ class App:
 
             if choice == 0:
                 self.path.pop()
+                break
 
             elif choice == 1:
                 self.set_screen()
